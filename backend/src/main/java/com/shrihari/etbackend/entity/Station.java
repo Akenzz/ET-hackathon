@@ -13,9 +13,6 @@ import lombok.*;
 public class Station {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @Column(nullable = false, unique = true)
     private String stationId;
 
@@ -24,9 +21,6 @@ public class Station {
 
     @Column(nullable = false)
     private String city;
-
-    @Column(nullable = false)
-    private String state;
 
     @Column(nullable = false)
     private Double latitude;

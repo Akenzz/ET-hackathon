@@ -30,7 +30,6 @@ public class StationServiceImpl implements StationService {
                 .stationId(station.getStationId())
                 .name(station.getName())
                 .city(station.getCity())
-                .state(station.getState())
                 .latitude(station.getLatitude())
                 .longitude(station.getLongitude())
                 .build();
