@@ -17,4 +17,5 @@ public interface ReadingRepository extends JpaRepository<Reading, Long> {
             LocalDateTime from,
             LocalDateTime to
     );
+    List<Reading> findByStationOrderByTimestampDesc(Station station);
 }
