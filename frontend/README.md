@@ -1,0 +1,130 @@
+# AQI Command Center — Frontend
+
+Next.js (App Router) + TypeScript + Tailwind frontend for the AI-Powered Urban
+Air Quality Intelligence platform. This document explains every API call the
+frontend makes: where it's triggered, what data it fetches, and how the
+mock/live routing actually works.
+
+## Architecture summary
+
+Component (UI)
+↓
+lib/api.ts   ← the ONLY file that calls axios. Nothing else does.
+↓
+┌─────────────┴─────────────┐
+↓                           ↓
+Java service              FastAPI service
+(stations, readings,      (forecast, attribution,
+weather, geo)              chat, admin/retrain)
+
+Components never call axios directly and never import from `mockData.ts`
+directly — everything goes through `lib/api.ts`, which decides internally
+whether to hit a real endpoint or return mock data.
+
+## Two upstream services
+
+| Base URL env var | Owns | Default (if unset) |
+|---|---|---|
+| `NEXT_PUBLIC_JAVA_API_URL` | `/stations`, `/readings/latest`, `/readings/history`, `/weather/latest`, `/geo/features` | `http://localhost:8080` |
+| `NEXT_PUBLIC_FASTAPI_URL` | `/forecast/{id}`, `/attribution/{id}`, `/chat`, `/admin/retrain/{id}` | `http://localhost:8000` |
+
+## Mock vs. live routing — how it actually works
+
+There are **two layers** of routing, not one:
+
+1. **Global switch** — `NEXT_PUBLIC_USE_MOCKS` in `.env.local`. When `"false"`,
+   the app is allowed to attempt real calls. Default (`true`/unset) forces
+   100% mock data regardless of anything else.
+2. **Per-station allowlist** — `lib/liveStations.ts` (`LIVE_STATION_IDS`).
+   Even with the global switch off, **only stations in this list** ever
+   attempt a real call. Every other station stays on mock data permanently —
+   this is the actual final architecture (a handful of real Delhi stations
+   proving the pipeline works, mock data for breadth across the rest of
+   India), not a temporary bootstrapping state.
+
+The decision function in `lib/api.ts`:
+```ts
+function useMockFor(stationId: string): boolean {
+  return FORCE_ALL_MOCKS || !isLiveStation(stationId);
+}
+```
+
+Currently live: `2553` (Anand Vihar), `2554` (Mandir Marg), `2556` (RK Puram),
+`3715` (ITO) — all Delhi, confirmed by the team lead. Update
+`LIVE_STATION_IDS` in `lib/liveStations.ts` if this list changes.
+
+## Every API call — what, where, why
+
+### `getStations()`
+- **Called from:** `app/page.tsx`, once on initial mount
+- **Data:** the full station list (id, name, lat/lon, city)
+- **Routing:** always returns the curated list in `lib/mockData.ts`, even in
+  live mode — there's no real "list all stations" call, since only 4 stations
+  are ever truly live. Swap this if Java ever serves a real combined registry.
+
+### `getLatestReading(stationId)`
+- **Called from:** `app/page.tsx` — once per station on mount, then again
+  every `POLL_INTERVAL_MS` (default 60s) for **all** stations in parallel
+- **Data:** current AQI + full pollutant breakdown (PM2.5, PM10, NO₂, SO₂, CO, O₃)
+- **Real endpoint:** `GET {JAVA_BASE_URL}/readings/latest?station_id=...`
+- **Powers:** map marker colors, the "Current AQI" card in the station panel,
+  dashboard summary stats (national average, worst/best city, hotspot list)
+
+### `getForecast(stationId, hours = 72)`
+- **Called from:** `components/StationPanel.tsx`, when a station is selected
+- **Data:** hourly AQI predictions with confidence bounds, for the requested
+  horizon (defaults to 72h to match the UI's "72-hour forecast" label)
+- **Real endpoint:** `GET {FASTAPI_BASE_URL}/forecast/{stationId}?hours=72`
+- **Powers:** the forecast area chart in the station panel
+
+### `getAttribution(stationId)`
+- **Called from:** `components/StationPanel.tsx`, when a station is selected
+- **Data:** likely pollution source (traffic/construction/industrial/etc.),
+  a confidence score, and contributing factors
+- **Real endpoint:** `GET {FASTAPI_BASE_URL}/attribution/{stationId}`
+- **Powers:** the attribution badge in the station panel
+
+### `postChat(query, stationId, language)`
+- **Called from:** `components/ChatWidget.tsx`, on message send
+- **Data:** a grounded advisory response + source citations, scoped to
+  whichever station is currently selected
+- **Real endpoint:** `POST {FASTAPI_BASE_URL}/chat`
+
+### `postRetrainStation(stationId)`
+- **Called from:** `components/AdminPanel.tsx` (Engineer role → "Retrain
+  models"), per-station or via the concurrency-limited "Retrain all"
+- **Data:** training job result — status, timestamp, optional error message
+- **Real endpoint:** `POST {FASTAPI_BASE_URL}/admin/retrain/{stationId}`
+- **Note:** this endpoint is a proposed contract, not yet confirmed built —
+  see `lib/types.ts` comments on `RetrainResponse`
+
+### `getWeather(lat, lon)` and `getGeoFeatures(lat, lon)`
+- **Defined in `lib/api.ts`, not currently called from any component.**
+  These exist because they're part of the original Section 0 contract
+  (Java's `/weather/latest` and `/geo/features`), but nothing in the UI
+  consumes them yet. Only gated by the global mock switch, not per-station,
+  since they take lat/lon rather than a station ID.
+
+## Env file reference
+
+```dotenv
+# "false" allows real calls for stations in LIVE_STATION_IDS.
+# Anything else (or unset) forces 100% mock data everywhere.
+NEXT_PUBLIC_USE_MOCKS=false
+
+NEXT_PUBLIC_JAVA_API_URL=http://localhost:8080
+NEXT_PUBLIC_FASTAPI_URL=http://localhost:8000
+
+# Optional — defaults to 60000 (60s) if unset.
+NEXT_PUBLIC_POLL_INTERVAL_MS=60000
+```
+
+## Key files
+
+| File | Role |
+|---|---|
+| `lib/api.ts` | Single source of truth for every network call |
+| `lib/liveStations.ts` | Which station IDs are allowed to attempt real calls |
+| `lib/mockData.ts` | Deterministic mock data generators, used as fallback |
+| `lib/types.ts` | TypeScript shapes matching the team's API contract |
+| `lib/aqi.ts` | Fixed CPCB AQI severity bands/colors |

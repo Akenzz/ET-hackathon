@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  /* --- Brand palette (chrome only — never used for AQI severity) --- */
+  --navy: #1A334A;      /* page background */
+  --ocean: #1E536E;     /* panel/card surfaces */
+  --teal: #18A3B7;      /* primary accent */
+  --cyan: #27E6EC;      /* signature accent — live/real-time indicators only */
+  --sky: #5AA5CD;       /* secondary text, links */
+  --indigo: #6F71A1;    /* secondary accent — chat, non-AQI badges */
+
+  --bg: var(--navy);
+  --bg-elevated: var(--ocean);
+  --bg-elevated-2: #24435C;
+  --border: #2C5674;
+  --fg: #EAF3F7;
+  --fg-muted: var(--sky);
+  --fg-faint: #7FA6BE;
+
+  /* --- CPCB AQI severity scale — standardized, do not repurpose --- */
+  --aqi-good: #2ECC71;
+  --aqi-satisfactory: #A3D65C;
+  --aqi-moderate: #F4C542;
+  --aqi-poor: #F08C3A;
+  --aqi-very-poor: #E24A4A;
+  --aqi-severe: #8B2E5C;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-elevated-2: var(--bg-elevated-2);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+
+  --color-navy: var(--navy);
+  --color-ocean: var(--ocean);
+  --color-teal: var(--teal);
+  --color-cyan: var(--cyan);
+  --color-sky: var(--sky);
+  --color-indigo: var(--indigo);
+
+  --color-aqi-good: var(--aqi-good);
+  --color-aqi-satisfactory: var(--aqi-satisfactory);
+  --color-aqi-moderate: var(--aqi-moderate);
+  --color-aqi-poor: var(--aqi-poor);
+  --color-aqi-very-poor: var(--aqi-very-poor);
+  --color-aqi-severe: var(--aqi-severe);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-data: var(--font-data);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* Leaflet dark-theme tile filter so the basemap doesn't fight the palette */
+.map-dark-tiles {
+  filter: brightness(0.75) invert(1) contrast(0.9) hue-rotate(200deg) saturate(0.6);
+}
+
+/* Live-data pulse — the signature element */
+@keyframes pulse-live {
+  0% { box-shadow: 0 0 0 0 rgba(39, 230, 236, 0.55); }
+  70% { box-shadow: 0 0 0 8px rgba(39, 230, 236, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(39, 230, 236, 0); }
+}
+.pulse-live {
+  animation: pulse-live 2s ease-out infinite;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-elevated); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: rgba(24, 163, 183, 0.35) !important;
+}
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: rgba(24, 163, 183, 0.75) !important;
+  color: #EAF3F7 !important;
+  font-family: var(--font-data), monospace;
+  font-weight: 600;
+}
