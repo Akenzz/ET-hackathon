@@ -11,7 +11,15 @@ interface ForecastChartProps {
   loading: boolean;
 }
 
-function CustomTooltip({ active, payload, label }: any) {
+type ForecastTooltipPoint = {
+  payload: {
+    aqi_predicted: number;
+    confidence_low: number;
+    confidence_high: number;
+  };
+};
+
+function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: ForecastTooltipPoint[]; label?: string | number }) {
   if (!active || !payload || !payload.length) return null;
   const p = payload[0].payload;
   const d = new Date(label);

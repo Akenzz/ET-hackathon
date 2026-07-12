@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import "leaflet/dist/leaflet.css";
@@ -33,13 +33,6 @@ function FlyTo({ center, zoom }: { center: [number, number]; zoom: number }) {
 export default function AqiMap({
   stations, readings, selectedStationId, onSelectStation, center, zoom,
 }: AqiMapProps) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  if (!mounted) {
-    return <div className="h-full w-full animate-pulse bg-bg-elevated" />;
-  }
-
   return (
     <MapContainer
       center={center}
@@ -60,7 +53,7 @@ export default function AqiMap({
         {stations.map((station) => {
           const reading = readings[station.station_id];
           const hasReading = !!reading;
-          const color = hasReading ? getAqiColor(reading.aqi) : "#5A6B7A"; // neutral gray — no data, not "good"
+          const color = hasReading ? getAqiColor(reading.aqi) : "var(--fg-faint)";
           const isSelected = station.station_id === selectedStationId;
 
           return (
@@ -69,7 +62,7 @@ export default function AqiMap({
               center={[station.lat, station.lon]}
               radius={isSelected ? 14 : 9}
               pathOptions={{
-                color: isSelected ? "#27E6EC" : color,
+                color: isSelected ? "var(--cyan)" : color,
                 weight: isSelected ? 3 : 1.5,
                 fillColor: color,
                 fillOpacity: hasReading ? 0.85 : 0.25, // hollow-ish look for "no data" so it doesn't read as a real band
@@ -77,7 +70,7 @@ export default function AqiMap({
               }}
               eventHandlers={{ click: () => onSelectStation(station.station_id) }}
             >
-              <Tooltip direction="top" offset={[0, -8]} opacity={1} className="!rounded-md !border-0 !bg-bg-elevated-2 !text-fg !font-data !text-xs !px-2 !py-1">
+              <Tooltip direction="top" offset={[0, -8]} opacity={1} className="!rounded-xl !border !border-border/70 !bg-bg-elevated-2 !text-fg !font-data !text-xs !px-2.5 !py-1.5">
                 <span className="font-semibold">{station.name}</span>
                 {" — " + station.city}
                 {hasReading ? " · AQI " + reading.aqi : " · no data"}

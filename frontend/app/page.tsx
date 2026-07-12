@@ -40,11 +40,7 @@ export default function Home() {
   const [locating, setLocating] = useState(true);
 
   const [view, setView] = useState<View>("dashboard");
-  const [role, setRole] = useState<UserRole | null>(null);
-
-  useEffect(() => {
-    setRole(getStoredRole());
-  }, []);
+  const [role, setRole] = useState<UserRole | null>(() => getStoredRole());
 
   function handleSelectRole(r: UserRole) {
     setRole(r);
@@ -92,22 +88,26 @@ export default function Home() {
   }, []);
 
   const loadStations = useCallback(() => {
-    setLoadingStations(true);
-    setStationsError(null);
-    getStations()
-      .then(async (list) => {
+    void (async () => {
+      await Promise.resolve();
+      setLoadingStations(true);
+      setStationsError(null);
+      try {
+        const list = await getStations();
         setStations(list);
         await refreshReadings(list);
         await locateNearest(list);
-      })
-      .catch(() => setStationsError("Couldn't load monitoring stations. Check the API connection and try again."))
-      .finally(() => setLoadingStations(false));
+      } catch {
+        setStationsError("Couldn't load monitoring stations. Check the API connection and try again.");
+      } finally {
+        setLoadingStations(false);
+      }
+    })();
   }, [refreshReadings, locateNearest]);
 
   useEffect(() => {
     loadStations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadStations]);
 
   useEffect(() => {
     if (stations.length === 0) return;
@@ -168,76 +168,105 @@ export default function Home() {
             </div>
           )}
 
-          <main className="relative flex flex-1 overflow-hidden">
-            <div className="relative flex-1">
-              {loadingStations ? (
-                <div className="flex h-full w-full items-center justify-center bg-bg-elevated">
-                  <p className="text-sm text-fg-faint">Loading stations…</p>
-                </div>
-              ) : stationsError ? (
-                <div className="flex h-full w-full items-center justify-center bg-bg-elevated p-6">
-                  <div className="w-full max-w-sm">
-                    <ErrorNotice message={stationsError} onRetry={loadStations} />
-                  </div>
-                </div>
-              ) : (
-                <AqiMap
-                  stations={stations}
-                  readings={readings}
-                  selectedStationId={selectedId}
-                  onSelectStation={setSelectedId}
-                  center={mapCenter}
-                  zoom={mapZoom}
-                />
-              )}
-
-              <div className="pointer-events-none absolute bottom-4 left-4 z-500 flex items-end gap-3">
-                <div className="pointer-events-auto">
-                  <AqiLegend />
-                </div>
+          <main className="grid flex-1 gap-4 overflow-hidden px-4 py-4 lg:grid-cols-[18rem_minmax(0,1fr)] lg:px-6">
+            <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto rounded-3xl border border-border/80 bg-bg-elevated/75 p-4 shadow-xl backdrop-blur-xl">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-fg-faint">Operations panel</p>
+                <h2 className="mt-1 font-display text-lg font-semibold text-fg">
+                  {selectedStation ? selectedStation.name : "Map view"}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-fg-faint">
+                  {selectedStation
+                    ? "The right panel is now anchored to station detail for the selected location."
+                    : "The right panel is reserved for the live map until you pick a station."}
+                </p>
               </div>
 
-              <div className="pointer-events-none absolute right-4 top-4 z-500 flex flex-col items-end gap-2">
-                {!locating && nearestDistanceKm !== null && (
-                  <div className="pointer-events-auto rounded-lg border border-border bg-bg-elevated/90 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-sm">
-                    Nearest station: {nearestDistanceKm.toFixed(1)} km away
-                  </div>
-                )}
+              {!locating && nearestDistanceKm !== null && (
+                <div className="rounded-2xl border border-border/80 bg-bg-elevated-2/70 px-3 py-3 text-sm text-fg-muted">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-fg-faint">Nearest station</p>
+                  <p className="font-data mt-1 text-base text-fg">{nearestDistanceKm.toFixed(1)} km away</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
                 <button
                   onClick={() => locateNearest(stations)}
                   disabled={locating || stations.length === 0}
-                  className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border bg-bg-elevated/90 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-sm transition-colors hover:text-fg disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-border bg-bg-elevated-2 px-3 py-2.5 text-[11px] text-fg-muted transition-colors hover:border-teal/40 hover:text-fg disabled:opacity-50"
                 >
                   <LocateFixed size={12} />
                   {locating ? "Locating…" : "Locate me"}
                 </button>
                 <button
                   onClick={resetToIndiaView}
-                  className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border bg-bg-elevated/90 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-sm transition-colors hover:text-fg"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-border bg-bg-elevated-2 px-3 py-2.5 text-[11px] text-fg-muted transition-colors hover:border-teal/40 hover:text-fg"
                 >
                   <MapIcon size={12} />
                   All-India view
                 </button>
                 <button
                   onClick={() => setView("dashboard")}
-                  className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border bg-bg-elevated/90 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-sm transition-colors hover:text-fg"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-border bg-bg-elevated-2 px-3 py-2.5 text-[11px] text-fg-muted transition-colors hover:border-teal/40 hover:text-fg"
                 >
                   <LayoutDashboard size={12} />
                   Dashboard
                 </button>
               </div>
-            </div>
 
-            {selectedStation && (
-              <div className="w-95 shrink-0">
+              <div className="rounded-2xl border border-border/80 bg-bg-elevated-2/70 p-3">
+                <AqiLegend />
+              </div>
+
+              {staleReadings && (
+                <ErrorNotice
+                  message="Live readings haven't updated recently — showing the last known values."
+                  onRetry={() => refreshReadings(stations)}
+                  compact
+                />
+              )}
+            </aside>
+
+            <section className="relative min-h-0 overflow-hidden rounded-3xl border border-border/80 bg-bg-elevated/70 shadow-2xl backdrop-blur-xl">
+              {loadingStations ? (
+                <div className="flex h-full min-h-[28rem] w-full items-center justify-center bg-bg-elevated">
+                  <p className="text-sm text-fg-faint">Loading stations…</p>
+                </div>
+              ) : stationsError ? (
+                <div className="flex h-full min-h-[28rem] w-full items-center justify-center bg-bg-elevated p-6">
+                  <div className="w-full max-w-sm">
+                    <ErrorNotice message={stationsError} onRetry={loadStations} />
+                  </div>
+                </div>
+              ) : selectedStation ? (
                 <StationPanel
+                  key={selectedStation.station_id}
                   station={selectedStation}
                   reading={readings[selectedStation.station_id]}
                   role={role ?? "citizen"}
                   onClose={() => setSelectedId(null)}
                 />
-              </div>
-            )}
+              ) : (
+                <div className="relative h-full min-h-[28rem] w-full">
+                  <AqiMap
+                    stations={stations}
+                    readings={readings}
+                    selectedStationId={selectedId}
+                    onSelectStation={setSelectedId}
+                    center={mapCenter}
+                    zoom={mapZoom}
+                  />
+                </div>
+              )}
+
+              {!selectedStation && !loadingStations && !stationsError && (
+                <div className="pointer-events-none absolute right-4 top-4 z-500 flex flex-col items-end gap-2">
+                  <div className="pointer-events-auto rounded-full border border-border/80 bg-bg-elevated/90 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-xl shadow-lg">
+                    Map ready
+                  </div>
+                </div>
+              )}
+            </section>
           </main>
         </>
       )}

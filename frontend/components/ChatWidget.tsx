@@ -50,14 +50,14 @@ export default function ChatWidget(props: { stationId: string | null; stationNam
   return (
     <div className="fixed bottom-5 right-5 z-[1000] flex flex-col items-end gap-3">
       {open && (
-        <div className="flex h-[28rem] w-80 flex-col overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-2xl">
-          <div className="flex items-center justify-between border-b border-border bg-bg-elevated-2 px-3.5 py-2.5">
+        <div className="flex h-[30rem] w-[21rem] flex-col overflow-hidden rounded-3xl border border-border/80 bg-bg-elevated/95 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-center justify-between border-b border-border/80 bg-bg-elevated-2/85 px-3.5 py-3">
             <div>
               <p className="text-sm font-semibold text-fg">Air quality copilot</p>
               <p className="text-[11px] text-fg-faint">{stationName || "Select a station"}</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="flex items-center gap-1 rounded-md border border-border bg-navy/40 px-1.5 py-1 text-[10px]">
+              <div className="flex items-center gap-1 rounded-full border border-border bg-navy/40 px-2 py-1 text-[10px] text-fg-muted">
                 <Languages size={11} className="text-fg-faint" />
                 <select
                   value={language}
@@ -69,7 +69,7 @@ export default function ChatWidget(props: { stationId: string | null; stationNam
                   ))}
                 </select>
               </div>
-              <button onClick={() => setOpen(false)} className="rounded-md p-1 text-fg-faint hover:bg-bg-elevated-2 hover:text-fg">
+              <button onClick={() => setOpen(false)} className="rounded-full p-1.5 text-fg-faint hover:bg-bg-elevated-2 hover:text-fg">
                 <X size={16} />
               </button>
             </div>
@@ -77,7 +77,7 @@ export default function ChatWidget(props: { stationId: string | null; stationNam
 
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
             {messages.length === 0 && (
-              <p className="mt-6 text-center text-xs text-fg-faint">
+              <p className="mt-6 rounded-2xl border border-dashed border-border/70 bg-bg-elevated-2/40 px-4 py-5 text-center text-xs text-fg-faint">
                 Ask something like &ldquo;is it safe for my dad to walk outside this evening?&rdquo;
               </p>
             )}
@@ -85,8 +85,10 @@ export default function ChatWidget(props: { stationId: string | null; stationNam
               <div key={i} className={"flex " + (m.role === "user" ? "justify-end" : "justify-start")}>
                 <div
                   className={
-                    "max-w-[85%] rounded-lg px-3 py-2 text-[12.5px] leading-relaxed " +
-                    (m.role === "user" ? "bg-teal/25 text-fg" : "bg-bg-elevated-2 text-fg-muted")
+                    "max-w-[85%] rounded-2xl px-3 py-2 text-[12.5px] leading-relaxed shadow-sm " +
+                    (m.role === "user"
+                      ? "bg-teal/20 text-fg ring-1 ring-inset ring-teal/20"
+                      : "bg-bg-elevated-2/90 text-fg-muted ring-1 ring-inset ring-border/60")
                   }
                 >
                   <p>{m.content}</p>
@@ -100,24 +102,24 @@ export default function ChatWidget(props: { stationId: string | null; stationNam
             ))}
             {sending && (
               <div className="flex justify-start">
-                <div className="rounded-lg bg-bg-elevated-2 px-3 py-2 text-[12.5px] text-fg-faint">Typing…</div>
+                <div className="rounded-2xl bg-bg-elevated-2 px-3 py-2 text-[12.5px] text-fg-faint">Typing…</div>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2 border-t border-border p-2.5">
+          <div className="flex items-center gap-2 border-t border-border/80 p-2.5">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               disabled={!stationId}
               placeholder={stationId ? "Ask about air quality…" : "Select a station first"}
-              className="flex-1 rounded-md border border-border bg-navy/40 px-2.5 py-1.5 text-xs text-fg placeholder:text-fg-faint outline-none focus:border-teal disabled:opacity-50"
+              className="flex-1 rounded-full border border-border bg-navy/40 px-3 py-2 text-xs text-fg placeholder:text-fg-faint outline-none focus:border-teal disabled:opacity-50"
             />
             <button
               onClick={handleSend}
               disabled={!stationId || !input.trim() || sending}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-teal text-navy transition-opacity disabled:opacity-40"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal text-navy transition-opacity disabled:opacity-40"
               aria-label="Send message"
             >
               <Send size={14} />

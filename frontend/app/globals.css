@@ -54,9 +54,39 @@
   --font-data: var(--font-data);
 }
 
+html {
+  min-height: 100%;
+}
+
 body {
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
   background: var(--bg);
   color: var(--fg);
+  background-image:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--teal) 16%, transparent) 0, transparent 34%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--sky) 18%, transparent) 0, transparent 28%),
+    radial-gradient(circle at bottom center, color-mix(in srgb, var(--indigo) 12%, transparent) 0, transparent 38%);
+  background-attachment: fixed;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03), transparent 18%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03) 0,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 72px
+    );
+  opacity: 0.22;
 }
 
 /* Leaflet dark-theme tile filter so the basemap doesn't fight the palette */
@@ -81,13 +111,21 @@ body {
 .marker-cluster-small,
 .marker-cluster-medium,
 .marker-cluster-large {
-  background-color: rgba(24, 163, 183, 0.35) !important;
+  background: color-mix(in srgb, var(--teal) 28%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--teal) 52%, transparent) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18) !important;
 }
 .marker-cluster-small div,
 .marker-cluster-medium div,
 .marker-cluster-large div {
-  background-color: rgba(24, 163, 183, 0.75) !important;
-  color: #EAF3F7 !important;
+  background: color-mix(in srgb, var(--teal) 72%, transparent) !important;
+  color: var(--fg) !important;
   font-family: var(--font-data), monospace;
   font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-live {
+    animation: none;
+  }
 }
