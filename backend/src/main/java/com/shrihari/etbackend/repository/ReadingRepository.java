@@ -18,4 +18,8 @@ public interface ReadingRepository extends JpaRepository<Reading, Long> {
             LocalDateTime to
     );
     List<Reading> findByStationOrderByTimestampDesc(Station station);
+    boolean existsByStationAndTimestamp(
+            Station station,
+            LocalDateTime timestamp
+    );
 }
