@@ -1,0 +1,1 @@
+# DEPRECATED: This file has been moved to scripts/java_client.py

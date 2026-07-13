@@ -23,7 +23,7 @@ public class ReadingServiceImpl implements ReadingService {
     @Override
     public LatestReadingResponseDto getLatestReading(String stationId) {
 
-        Station station = stationRepository.findByStationId(stationId)
+        Station station = stationRepository.findById(stationId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Station not found"));
 
@@ -45,7 +45,7 @@ public class ReadingServiceImpl implements ReadingService {
                                               LocalDateTime from,
                                               LocalDateTime to) {
 
-        Station station = stationRepository.findByStationId(stationId)
+        Station station = stationRepository.findById(stationId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Station not found"));
 

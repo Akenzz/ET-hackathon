@@ -17,4 +17,10 @@ public interface ReadingRepository extends JpaRepository<Reading, Long> {
             LocalDateTime from,
             LocalDateTime to
     );
+    List<Reading> findByStationOrderByTimestampDesc(Station station);
+    boolean existsByStationAndTimestamp(
+            Station station,
+            LocalDateTime timestamp
+    );
+    List<Reading> findByStationStationIdOrderByTimestampDesc(String stationId);
 }

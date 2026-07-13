@@ -6,7 +6,17 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "readings")
+@Table(
+        name = "readings",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        columnNames = {
+                                "station_id",
+                                "timestamp"
+                        }
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,31 +28,24 @@ public class Reading {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "station_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "station_id")
     private Station station;
 
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
-    @Column(nullable = false)
     private Integer aqi;
 
-    @Column(nullable = false)
     private Double pm25;
 
-    @Column(nullable = false)
     private Double pm10;
 
-    @Column(nullable = false)
     private Double no2;
 
-    @Column(nullable = false)
     private Double so2;
 
-    @Column(nullable = false)
     private Double co;
 
-    @Column(nullable = false)
     private Double o3;
 }

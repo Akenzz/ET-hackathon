@@ -3,6 +3,8 @@ package com.shrihari.etbackend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "weather")
 @Getter
@@ -16,22 +18,20 @@ public class Weather {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "station_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "station_id")
     private Station station;
 
     @Column(nullable = false)
+    private LocalDateTime fetchedAt;
+
     private Double temperature;
 
-    @Column(nullable = false)
     private Double humidity;
 
-    @Column(nullable = false)
     private Double windSpeed;
 
-    @Column(nullable = false)
     private Double windDirection;
 
-    @Column(nullable = false)
     private Double precipitation;
 }

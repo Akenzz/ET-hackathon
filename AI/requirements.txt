@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pandas
+numpy
+matplotlib
+scikit-learn
+prophet
+requests
+python-dotenv
+xgboost
