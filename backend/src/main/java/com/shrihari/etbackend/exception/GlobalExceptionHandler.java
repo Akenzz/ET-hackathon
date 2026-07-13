@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -38,11 +39,13 @@ public class GlobalExceptionHandler {
 
         ex.printStackTrace(System.err);
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", 500,
-                        "message", ex.getMessage()
-                ));
+        Map<String,Object> response = new HashMap<>();
+
+        response.put("status",500);
+        response.put("message",
+                ex.getMessage() == null ? "Internal Server Error" : ex.getMessage());
+        response.put("timestamp",LocalDateTime.now());
+
+        return ResponseEntity.status(500).body(response);
     }
 }

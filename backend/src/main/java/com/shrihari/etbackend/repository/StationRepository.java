@@ -10,4 +10,5 @@ public interface StationRepository extends JpaRepository<Station, String> {
     Optional<Station> findByLatitudeAndLongitude(Double latitude,
                                                  Double longitude);
 
+    Optional<Station> findByStationId(String stationId);
 }

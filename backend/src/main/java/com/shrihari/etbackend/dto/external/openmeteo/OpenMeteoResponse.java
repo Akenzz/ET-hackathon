@@ -7,4 +7,6 @@ public class OpenMeteoResponse {
 
     private CurrentWeather current;
 
+    private HourlyWeather hourly;
+
 }

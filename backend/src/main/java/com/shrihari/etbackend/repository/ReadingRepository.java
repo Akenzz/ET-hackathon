@@ -22,4 +22,5 @@ public interface ReadingRepository extends JpaRepository<Reading, Long> {
             Station station,
             LocalDateTime timestamp
     );
+    List<Reading> findByStationStationIdOrderByTimestampDesc(String stationId);
 }
