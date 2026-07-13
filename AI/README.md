@@ -1,131 +1,135 @@
-# AI Module (AQI Forecasting Service)
+# AI Module (AQI Forecasting & Source Attribution)
 
-This folder contains the Python-based AI service for AQI forecasting.  
-It uses Facebook Prophet models trained per station and exposes predictions through a FastAPI API.
+This module contains the Python AI forecasting service, model evaluation, and training pipelines.
 
-## What is in this codebase
+---
 
-- **Model serving API**: `app/main.py`
-  - Starts a FastAPI app
-  - Exposes health endpoint and forecast endpoint
-- **Forecast engine**: `app/forecast.py`
-  - Lazily loads Prophet JSON models from `app/models/prophet`
-  - Caches loaded models in memory
-  - Predicts hourly AQI values for the requested horizon
-- **Training pipeline**: `app/train_all_models.py`
-  - Reads raw AQI data from `data/raw/AQI.csv`
-  - Trains one Prophet model per station ID
-  - Saves each model as JSON to `app/models/prophet/`
-- **Model load check script**: `app/train_model.py`
-  - Loads a single model (`DL031.json`) to verify serialization/deserialization
-- **Data helper**: `app/java_client.py`
-  - Small helper to read station history from CSV
-- **Weather placeholder**: `app/weather.py`
-  - Stub function returning mock weather values
-
-## Directory structure
+## Folder Structure
 
 ```text
 AI/
   app/
-    main.py
-    forecast.py
-    train_all_models.py
-    train_model.py
-    java_client.py
-    weather.py
+    main.py                       # FastAPI application entrypoint
+    routers/
+      forecast.py                 # GET /forecast/{station_id} (calls Java, returns predictions)
+      retrain.py                  # POST /retrain/{station_id} (retrains XGBoost model)
+      attribution.py              # GET /attribution/{station_id} (rule-based source attribution)
+    services/
+      aqi_category.py             # Map AQI float values to standard CPCB categories
+      cpcb_aqi.py                 # Linear interpolation to compute AQI from PM2.5/PM10
+      feature_builder.py          # Feature extraction from history & weather for XGBoost
+      model_manager.py            # Model loader (checks base and finetuned pickle files)
+      predictor.py                # XGBoost single-step prediction wrapper
+      recursive_predictor.py      # Autoregressive multi-step prediction loop
+      trainer.py                  # XGBoost model retraining service function
+      attribution/
+        engine.py                 # Orchestration of the attribution scoring engine
+        explanations.py           # Text explanations formatting for likely sources
+        rules.py                  # Attribution scoring rules (meteorological, traffic, etc.)
+        scorer.py                 # Weighted likely-source computation
     models/
-      prophet/
-        <station_id>.json
+      base/
+        235.pkl                   # Production base XGBoost model for station 235
+      finetuned/                  # Directory where dynamically retrained models are stored
   data/
-    raw/
-      AQI.csv
-    processed/
-  notebooks/
-    data_exploration.ipynb
-  requirements.txt
+    historical/
+      raw/
+        235.csv                   # Raw hourly pollutant readings
+        openaq_3yr_history.csv    # OpenAQ historical dataset
+      weather/
+        235_weather.csv           # Raw meteorological metrics (humidity, wind, etc.)
+      processed/
+        235_merged.csv            # Clean, merged meteorological & pollutant data
+        235_training.csv          # Prophet and XGBoost ready training dataset
+  scripts/
+    train_xgboost.py              # Main training script for the production XGBoost model
+    evaluate_models.py            # Comparative evaluation of Prophet vs. Baseline
+    evaluate.py                   # In-depth validation and plot generation for XGBoost vs. Baseline
+    java_client.py                # Historical fallback client (mock)
+    prophet_training/
+      build_dataset.py            # Preprocessing script for the Prophet training set
+      train_base_model.py         # Trains a Prophet baseline model
+      test_base_model.py          # Runs weather-regressed forecasting predictions on Prophet
+  requirements.txt                # System requirements (includes xgboost, prophet, fastapi, etc.)
 ```
 
-## Prerequisites
+---
 
-- Python 3.10+ recommended
-- `pip`
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-## Train models
+## Setup & Installation
 
 From the `AI` directory:
 
+1. **Create and activate a virtual environment:**
+   ```bash
+   python -m venv venv
+   # On Windows:
+   venv\Scripts\activate
+   # On macOS/Linux:
+   source venv/bin/activate
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+---
+
+## FastAPI Service
+
+### Run the FastAPI App
+
+Start the development server from the `AI/` root directory:
 ```bash
-python app/train_all_models.py
+uvicorn app.main:app --reload --port 8001
 ```
 
-This will:
-1. Load `data/raw/AQI.csv`
-2. Build one Prophet model per station
-3. Save model JSON files to `app/models/prophet/`
+### Endpoints
 
-## Run API server
+#### 1. `GET /forecast/{station_id}`
+- **Description:** Performs multi-step recursive AQI forecasting for the next 24 hours.
+- **Workflow:**
+  1. Requests historical readings and weather forecast from the Java service (default: `http://localhost:8000/forecast/{station_id}`).
+  2. Builds rolling feature vectors (lag values, moving average, temperature, wind, etc.).
+  3. Uses the **XGBoost** model to forecast one hour ahead, updates lags recursively, and predicts the 24-hour horizon.
+- **Response:** Detailed JSON listing predictions, confidence intervals, and CPCB category categories.
 
-From the `AI` directory:
+#### 2. `GET /attribution/{station_id}`
+- **Description:** Calculates source attribution breakdown (Traffic, Industry, Construction, Meteorology).
+- **Workflow:**
+  1. Pulls meteorological, geographical, and pollutant data.
+  2. Applies heuristic scoring rules (e.g. rush hours, wind speeds, NO₂ and SO₂ levels, PM10/PM2.5 ratios).
+  3. Returns the most likely pollution source, confidence level, and contributing factors.
 
-```bash
-uvicorn app.main:app --reload
-```
 
-Default URL: `http://127.0.0.1:8000`
+## Running Developer Scripts
 
-## API endpoints
+All developer utility scripts are located under the `scripts/` directory. They can be run from the `AI` folder and use relative paths dynamically resolved by `Path(__file__)`.
 
-### `GET /`
+- **Train production XGBoost model:**
+  ```bash
+  python scripts/train_xgboost.py
+  ```
+- **Evaluate XGBoost against baseline (generates CSVs and plots in `scripts/results/`):**
+  ```bash
+  python scripts/evaluate.py
+  ```
+- **Train and test Prophet baseline models:**
+  ```bash
+  python scripts/prophet_training/build_dataset.py
+  python scripts/prophet_training/train_base_model.py
+  python scripts/prophet_training/test_base_model.py
+  ```
 
-Health/status endpoint.
+---
 
-Example response:
+## Production vs. Development Models
 
-```json
-{
-  "status": "Forecast Service Running"
-}
-```
+1. **XGBoost (Production):**
+   - Implemented in `app/services/predictor.py` and `app/services/recursive_predictor.py`.
+   - Autoregressive model using `lag1`, `lag2`, `lag3`, and `rolling3` features along with weather parameters.
+   - Significantly outperforms the persistence baseline in complex shifting scenarios.
 
-### `GET /forecast/{station_id}?hours=24`
-
-Returns hourly AQI forecast for a station.
-
-- `station_id` (path): station code (for example `DL031`)
-- `hours` (query, optional): forecast horizon in hours (default: `24`)
-
-Example:
-
-```http
-GET /forecast/DL031?hours=12
-```
-
-Response shape:
-
-```json
-{
-  "station_id": "DL031",
-  "forecast_horizon": 12,
-  "predictions": [
-    {
-      "ts": "2026-07-10T12:00:00",
-      "aqi_predicted": 145.2,
-      "confidence_low": 130.4,
-      "confidence_high": 160.7
-    }
-  ]
-}
-```
-
-## Notes
-
-- Forecasting requires corresponding model file: `app/models/prophet/{station_id}.json`.
-- If a model is missing, the service raises `FileNotFoundError`.
-- `app/config.py` is currently empty and can be used for future centralized settings.
+2. **Prophet (Development/Baseline):**
+   - Implemented under `scripts/prophet_training/`.
+   - Used for structural time-series analysis, accounting for daily/weekly/yearly seasonality.
