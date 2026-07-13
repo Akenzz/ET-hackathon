@@ -1,7 +1,7 @@
 import axios from "axios";
 import type {
   Station, LatestReading, HistoryPoint, WeatherLatest,
-  GeoFeatures, Forecast, Attribution, ChatResponse, RetrainResponse,
+  GeoFeatures, Forecast, Attribution, ChatResponse, RetrainResponse, SourceCategory,
 } from "./types";
 import {
   MOCK_STATIONS, mockLatest, mockHistory, mockWeather,
@@ -37,7 +37,7 @@ export async function getLatestReading(stationId: string): Promise<LatestReading
   }
 
   const res = await javaClient.get<LatestReading>("/readings/latest",
-    { params: { station_id: stationId } }
+    { params: { stationId } }
   );
 
   return res.data;
@@ -45,7 +45,7 @@ export async function getLatestReading(stationId: string): Promise<LatestReading
 
 export async function getHistory(stationId: string, from: string, to: string): Promise<HistoryPoint[]> {
   if (useMockFor(stationId)) { await wait(); return mockHistory(stationId); }
-  const res = await javaClient.get<HistoryPoint[]>("/readings/history", { params: { station_id: stationId, from, to } });
+  const res = await javaClient.get<HistoryPoint[]>("/readings/history", { params: { stationId, from, to } });
   return res.data;
 }
 
@@ -61,18 +61,27 @@ export async function getGeoFeatures(lat: number, lon: number, radiusKm = 2): Pr
   return res.data;
 }
 
-const DEFAULT_FORECAST_HOURS = 72;
+const DEFAULT_FORECAST_HOURS = 24;
 
 export async function getForecast(stationId: string, hours: number = DEFAULT_FORECAST_HOURS): Promise<Forecast> {
   if (useMockFor(stationId)) { await wait(400); return mockForecast(stationId, hours); }
-  const res = await aiClient.get<Forecast>("/forecast/" + stationId, { params: { hours } });
-  return res.data;
+  const res = await aiClient.get<any>("/forecast/" + stationId, { params: { horizon: hours } });
+  return {
+    station_id: res.data.stationId,
+    forecast_horizon: hours,
+    predictions: res.data.forecast,
+  };
 }
 
 export async function getAttribution(stationId: string): Promise<Attribution> {
   if (useMockFor(stationId)) { await wait(400); return mockAttribution(stationId); }
-  const res = await aiClient.get<Attribution>("/attribution/" + stationId);
-  return res.data;
+  const res = await aiClient.get<any>("/attribution/" + stationId);
+  return {
+    station_id: res.data.stationId,
+    likely_source: res.data.likelySource.toLowerCase() as SourceCategory,
+    confidence: res.data.confidence,
+    contributing_factors: res.data.contributingFactors,
+  };
 }
 
 export async function postRetrainStation(stationId: string): Promise<RetrainResponse> {
@@ -83,7 +92,7 @@ export async function postRetrainStation(stationId: string): Promise<RetrainResp
     }
     return { station_id: stationId, status: "success", trained_at: new Date().toISOString() };
   }
-  const res = await aiClient.post<RetrainResponse>("/admin/retrain/" + stationId);
+  const res = await aiClient.post<RetrainResponse>("/retrain/" + stationId);
   return res.data;
 }
 
