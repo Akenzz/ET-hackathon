@@ -1,106 +1,135 @@
-# AI Module (AQI Forecasting)
+# AI Module (AQI Forecasting & Source Attribution)
 
-This folder contains the Python AI service and training utilities for AQI forecasting.
+This module contains the Python AI forecasting service, model evaluation, and training pipelines.
 
-## Current folder structure
+---
+
+## Folder Structure
 
 ```text
 AI/
   app/
-    main.py
-    forecast.py
-    retrain.py
-    attribution.py                # currently empty placeholder
-    java_client.py
-    models/
-      235_base.pkl
+    main.py                       # FastAPI application entrypoint
+    routers/
+      forecast.py                 # GET /forecast/{station_id} (calls Java, returns predictions)
+      retrain.py                  # POST /retrain/{station_id} (retrains XGBoost model)
+      attribution.py              # GET /attribution/{station_id} (rule-based source attribution)
     services/
-      attribution.py
-      cpcb_aqi.py
-      model_manager.py
-      predictor.py
-      trainer.py
-    training/
-      build_dataset.py
-      download_openaq.py          # currently empty placeholder
-      train_base_model.py
-      test_base_model.py
+      aqi_category.py             # Map AQI float values to standard CPCB categories
+      cpcb_aqi.py                 # Linear interpolation to compute AQI from PM2.5/PM10
+      feature_builder.py          # Feature extraction from history & weather for XGBoost
+      model_manager.py            # Model loader (checks base and finetuned pickle files)
+      predictor.py                # XGBoost single-step prediction wrapper
+      recursive_predictor.py      # Autoregressive multi-step prediction loop
+      trainer.py                  # XGBoost model retraining service function
+      attribution/
+        engine.py                 # Orchestration of the attribution scoring engine
+        explanations.py           # Text explanations formatting for likely sources
+        rules.py                  # Attribution scoring rules (meteorological, traffic, etc.)
+        scorer.py                 # Weighted likely-source computation
+    models/
+      base/
+        235.pkl                   # Production base XGBoost model for station 235
+      finetuned/                  # Directory where dynamically retrained models are stored
   data/
     historical/
       raw/
+        235.csv                   # Raw hourly pollutant readings
+        openaq_3yr_history.csv    # OpenAQ historical dataset
       weather/
+        235_weather.csv           # Raw meteorological metrics (humidity, wind, etc.)
       processed/
-  notebooks/
-    data_exploration.ipynb
-    station.ipynb
-    weather.ipynb
-  requirements.txt
+        235_merged.csv            # Clean, merged meteorological & pollutant data
+        235_training.csv          # Prophet and XGBoost ready training dataset
+  scripts/
+    train_xgboost.py              # Main training script for the production XGBoost model
+    evaluate_models.py            # Comparative evaluation of Prophet vs. Baseline
+    evaluate.py                   # In-depth validation and plot generation for XGBoost vs. Baseline
+    java_client.py                # Historical fallback client (mock)
+    prophet_training/
+      build_dataset.py            # Preprocessing script for the Prophet training set
+      train_base_model.py         # Trains a Prophet baseline model
+      test_base_model.py          # Runs weather-regressed forecasting predictions on Prophet
+  requirements.txt                # System requirements (includes xgboost, prophet, fastapi, etc.)
 ```
 
-## Setup
+---
+
+## Setup & Installation
 
 From the `AI` directory:
 
+1. **Create and activate a virtual environment:**
+   ```bash
+   python -m venv venv
+   # On Windows:
+   venv\Scripts\activate
+   # On macOS/Linux:
+   source venv/bin/activate
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+---
+
+## FastAPI Service
+
+### Run the FastAPI App
+
+Start the development server from the `AI/` root directory:
 ```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8001
 ```
 
-## FastAPI service
+### Endpoints
 
-Main app entrypoint: `app/main.py`
+#### 1. `GET /forecast/{station_id}`
+- **Description:** Performs multi-step recursive AQI forecasting for the next 24 hours.
+- **Workflow:**
+  1. Requests historical readings and weather forecast from the Java service (default: `http://localhost:8000/forecast/{station_id}`).
+  2. Builds rolling feature vectors (lag values, moving average, temperature, wind, etc.).
+  3. Uses the **XGBoost** model to forecast one hour ahead, updates lags recursively, and predicts the 24-hour horizon.
+- **Response:** Detailed JSON listing predictions, confidence intervals, and CPCB category categories.
 
-Configured routers:
-- `GET /forecast/{station_id}` from `app/forecast.py`
-- `POST /retrain/{station_id}` from `app/retrain.py`
-- Attribution router import exists, but `app/attribution.py` is currently empty
+#### 2. `GET /attribution/{station_id}`
+- **Description:** Calculates source attribution breakdown (Traffic, Industry, Construction, Meteorology).
+- **Workflow:**
+  1. Pulls meteorological, geographical, and pollutant data.
+  2. Applies heuristic scoring rules (e.g. rush hours, wind speeds, NO₂ and SO₂ levels, PM10/PM2.5 ratios).
+  3. Returns the most likely pollution source, confidence level, and contributing factors.
 
-Run:
 
-```bash
-uvicorn app.main:app --reload
-```
+## Running Developer Scripts
 
-## Endpoint behavior (as currently implemented)
+All developer utility scripts are located under the `scripts/` directory. They can be run from the `AI` folder and use relative paths dynamically resolved by `Path(__file__)`.
 
-### `GET /forecast/{station_id}`
-- Loads model using `app/services/model_manager.py`
-  - station model: `AI/models/{station_id}.pkl`
-  - fallback bootstrap model: `AI/models/delhi_bootstrap_model.pkl`
-- Uses temporary hardcoded weather values
-- Returns Prophet output fields: `ds`, `yhat`, `yhat_lower`, `yhat_upper`
+- **Train production XGBoost model:**
+  ```bash
+  python scripts/train_xgboost.py
+  ```
+- **Evaluate XGBoost against baseline (generates CSVs and plots in `scripts/results/`):**
+  ```bash
+  python scripts/evaluate.py
+  ```
+- **Train and test Prophet baseline models:**
+  ```bash
+  python scripts/prophet_training/build_dataset.py
+  python scripts/prophet_training/train_base_model.py
+  python scripts/prophet_training/test_base_model.py
+  ```
 
-### `POST /retrain/{station_id}`
-- Reads training data from `AI/data/processed/delhi_bootstrap_weather.csv`
-- Trains a Prophet model via `app/services/trainer.py`
-- Saves model to `AI/models/{station_id}.pkl`
+---
 
-## Training scripts (`app/training`)
+## Production vs. Development Models
 
-These scripts are station-specific and currently hardcoded for station `235`.
+1. **XGBoost (Production):**
+   - Implemented in `app/services/predictor.py` and `app/services/recursive_predictor.py`.
+   - Autoregressive model using `lag1`, `lag2`, `lag3`, and `rolling3` features along with weather parameters.
+   - Significantly outperforms the persistence baseline in complex shifting scenarios.
 
-- `build_dataset.py`  
-  Builds `235_processed.csv` from merged historical data and CPCB AQI logic.
-- `train_base_model.py`  
-  Trains a Prophet base model and saves `models/235_base.pkl`.
-- `test_base_model.py`  
-  Loads the saved model and runs a 24-hour prediction using weather data.
-
-## Data and notebooks
-
-- `data/historical/` contains raw, weather, and processed CSV files used by scripts.
-- `notebooks/` contains exploration and analysis notebooks.
-
-## Dependencies
-
-Defined in `requirements.txt`:
-- fastapi
-- uvicorn
-- pandas
-- numpy
-- matplotlib
-- scikit-learn
-- prophet
-- requests
-- python-dotenv
+2. **Prophet (Development/Baseline):**
+   - Implemented under `scripts/prophet_training/`.
+   - Used for structural time-series analysis, accounting for daily/weekly/yearly seasonality.

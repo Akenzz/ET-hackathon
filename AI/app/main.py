@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 
-from app.forecast import router as forecast_router
-from app.retrain import router as retrain_router
-from app.attribution import router as attribution_router
+from app.routers.forecast import router as forecast_router
+from app.routers.retrain import router as retrain_router
+from app.routers.attribution import router as attribution_router
 
 app = FastAPI()
 
