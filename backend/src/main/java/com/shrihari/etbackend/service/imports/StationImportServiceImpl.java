@@ -6,7 +6,9 @@ import com.shrihari.etbackend.entity.Station;
 import com.shrihari.etbackend.repository.StationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StationImportServiceImpl implements StationImportService {
@@ -49,7 +51,7 @@ public class StationImportServiceImpl implements StationImportService {
                     .build();
 
             stationRepository.save(station);
-
+            log.info("Imported station {}", station.getStationId());
         }
 
     }

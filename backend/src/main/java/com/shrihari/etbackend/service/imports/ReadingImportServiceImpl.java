@@ -1,6 +1,7 @@
 package com.shrihari.etbackend.service.imports;
 
 import com.shrihari.etbackend.client.waqi.WaqiFeedClient;
+import com.shrihari.etbackend.config.PollingProperties;
 import com.shrihari.etbackend.dto.external.waqi.feed.WaqiFeedResponse;
 import com.shrihari.etbackend.dto.external.waqi.feed.WaqiValue;
 import com.shrihari.etbackend.entity.Reading;
@@ -13,7 +14,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReadingImportServiceImpl implements ReadingImportService {
@@ -21,16 +24,26 @@ public class ReadingImportServiceImpl implements ReadingImportService {
     private final StationRepository stationRepository;
     private final ReadingRepository readingRepository;
     private final WaqiFeedClient waqiFeedClient;
+    private final PollingProperties pollingProperties;
 
     @Override
     public void importLatestReadings() {
 
-        for (Station station : stationRepository.findAll()) {
+        for (String stationId : pollingProperties.getStationIds()) {
 
-            WaqiFeedResponse response = waqiFeedClient.getFeed(station.getStationId());
+            Station station = stationRepository
+                    .findById(stationId)
+                    .orElse(null);
 
-            if (response.getData().getAqi() == null ||
-                    response.getData().getAqi().equals("-")) {
+            if (station == null) {
+                continue;
+            }
+
+            WaqiFeedResponse response = waqiFeedClient.getFeed(stationId);
+
+            if (response == null ||
+                    response.getData() == null ||
+                    response.getData().getIaqi() == null) {
                 continue;
             }
 
@@ -56,8 +69,19 @@ public class ReadingImportServiceImpl implements ReadingImportService {
 
                     .build();
 
-            readingRepository.save(reading);
+            if (!readingRepository.existsByStationAndTimestamp(
+                    station,
+                    reading.getTimestamp())) {
 
+                readingRepository.save(reading);
+
+                log.info("AQI Imported : {}", station.getStationId());
+
+            } else {
+
+                log.info("AQI already exists : {}", station.getStationId());
+
+            }
         }
 
     }
