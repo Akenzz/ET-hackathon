@@ -1,131 +1,106 @@
-# AI Module (AQI Forecasting Service)
+# AI Module (AQI Forecasting)
 
-This folder contains the Python-based AI service for AQI forecasting.  
-It uses Facebook Prophet models trained per station and exposes predictions through a FastAPI API.
+This folder contains the Python AI service and training utilities for AQI forecasting.
 
-## What is in this codebase
-
-- **Model serving API**: `app/main.py`
-  - Starts a FastAPI app
-  - Exposes health endpoint and forecast endpoint
-- **Forecast engine**: `app/forecast.py`
-  - Lazily loads Prophet JSON models from `app/models/prophet`
-  - Caches loaded models in memory
-  - Predicts hourly AQI values for the requested horizon
-- **Training pipeline**: `app/train_all_models.py`
-  - Reads raw AQI data from `data/raw/AQI.csv`
-  - Trains one Prophet model per station ID
-  - Saves each model as JSON to `app/models/prophet/`
-- **Model load check script**: `app/train_model.py`
-  - Loads a single model (`DL031.json`) to verify serialization/deserialization
-- **Data helper**: `app/java_client.py`
-  - Small helper to read station history from CSV
-- **Weather placeholder**: `app/weather.py`
-  - Stub function returning mock weather values
-
-## Directory structure
+## Current folder structure
 
 ```text
 AI/
   app/
     main.py
     forecast.py
-    train_all_models.py
-    train_model.py
+    retrain.py
+    attribution.py                # currently empty placeholder
     java_client.py
-    weather.py
     models/
-      prophet/
-        <station_id>.json
+      235_base.pkl
+    services/
+      attribution.py
+      cpcb_aqi.py
+      model_manager.py
+      predictor.py
+      trainer.py
+    training/
+      build_dataset.py
+      download_openaq.py          # currently empty placeholder
+      train_base_model.py
+      test_base_model.py
   data/
-    raw/
-      AQI.csv
-    processed/
+    historical/
+      raw/
+      weather/
+      processed/
   notebooks/
     data_exploration.ipynb
+    station.ipynb
+    weather.ipynb
   requirements.txt
 ```
 
-## Prerequisites
+## Setup
 
-- Python 3.10+ recommended
-- `pip`
-
-Install dependencies:
+From the `AI` directory:
 
 ```bash
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Train models
+## FastAPI service
 
-From the `AI` directory:
+Main app entrypoint: `app/main.py`
 
-```bash
-python app/train_all_models.py
-```
+Configured routers:
+- `GET /forecast/{station_id}` from `app/forecast.py`
+- `POST /retrain/{station_id}` from `app/retrain.py`
+- Attribution router import exists, but `app/attribution.py` is currently empty
 
-This will:
-1. Load `data/raw/AQI.csv`
-2. Build one Prophet model per station
-3. Save model JSON files to `app/models/prophet/`
-
-## Run API server
-
-From the `AI` directory:
+Run:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Default URL: `http://127.0.0.1:8000`
+## Endpoint behavior (as currently implemented)
 
-## API endpoints
+### `GET /forecast/{station_id}`
+- Loads model using `app/services/model_manager.py`
+  - station model: `AI/models/{station_id}.pkl`
+  - fallback bootstrap model: `AI/models/delhi_bootstrap_model.pkl`
+- Uses temporary hardcoded weather values
+- Returns Prophet output fields: `ds`, `yhat`, `yhat_lower`, `yhat_upper`
 
-### `GET /`
+### `POST /retrain/{station_id}`
+- Reads training data from `AI/data/processed/delhi_bootstrap_weather.csv`
+- Trains a Prophet model via `app/services/trainer.py`
+- Saves model to `AI/models/{station_id}.pkl`
 
-Health/status endpoint.
+## Training scripts (`app/training`)
 
-Example response:
+These scripts are station-specific and currently hardcoded for station `235`.
 
-```json
-{
-  "status": "Forecast Service Running"
-}
-```
+- `build_dataset.py`  
+  Builds `235_processed.csv` from merged historical data and CPCB AQI logic.
+- `train_base_model.py`  
+  Trains a Prophet base model and saves `models/235_base.pkl`.
+- `test_base_model.py`  
+  Loads the saved model and runs a 24-hour prediction using weather data.
 
-### `GET /forecast/{station_id}?hours=24`
+## Data and notebooks
 
-Returns hourly AQI forecast for a station.
+- `data/historical/` contains raw, weather, and processed CSV files used by scripts.
+- `notebooks/` contains exploration and analysis notebooks.
 
-- `station_id` (path): station code (for example `DL031`)
-- `hours` (query, optional): forecast horizon in hours (default: `24`)
+## Dependencies
 
-Example:
-
-```http
-GET /forecast/DL031?hours=12
-```
-
-Response shape:
-
-```json
-{
-  "station_id": "DL031",
-  "forecast_horizon": 12,
-  "predictions": [
-    {
-      "ts": "2026-07-10T12:00:00",
-      "aqi_predicted": 145.2,
-      "confidence_low": 130.4,
-      "confidence_high": 160.7
-    }
-  ]
-}
-```
-
-## Notes
-
-- Forecasting requires corresponding model file: `app/models/prophet/{station_id}.json`.
-- If a model is missing, the service raises `FileNotFoundError`.
-- `app/config.py` is currently empty and can be used for future centralized settings.
+Defined in `requirements.txt`:
+- fastapi
+- uvicorn
+- pandas
+- numpy
+- matplotlib
+- scikit-learn
+- prophet
+- requests
+- python-dotenv

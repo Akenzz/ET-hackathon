@@ -1,35 +1,76 @@
-from fastapi import APIRouter
-import pandas as pd
-from app.services.model_manager import load_model
-from app.services.predictor import build_future_dataframe
-router = APIRouter()
+from fastapi import APIRouter, HTTPException
+
+from app.services.predictor import predict_aqi
+
+router = APIRouter(
+    prefix="/forecast",
+    tags=["Forecast"]
+)
 
 
-@router.get("/forecast/{station_id}")
+@router.get("/{station_id}")
 def forecast(station_id: str):
+    """
+    Production Forecast Endpoint.
 
-    model = load_model(station_id)
+    For now this uses dummy data.
 
-    # Temporary weather
-    weather = {
-        "tempC": 34,
-        "humidity": 60,
-        "windSpeedKmh": 8,
-        "windDirDeg": 180,
-        "precipMm": 0
-    }
+    Later:
+    Java Backend
+        ↓
+    AQI History
+    Weather
+        ↓
+    predict_aqi()
+    """
 
-    future = build_future_dataframe(weather)
+    try:
 
-    prediction = model.predict(future)
+        # -------------------------------------------------
+        # TEMPORARY MOCK DATA
+        # Replace this with Java API calls later
+        # -------------------------------------------------
 
-    return prediction[
-        [
-            "ds",
-            "yhat",
-            "yhat_lower",
-            "yhat_upper"
+        aqi_history = [
+            302,
+            315,
+            318
         ]
-    ].to_dict(
-        orient="records"
-    )
+
+        weather = {
+
+            "tempC": 35.5,
+
+            "humidity": 54,
+
+            "precipMm": 0,
+
+            "pressure": 974.6,
+
+            "windSpeedKmh": 8.8,
+
+            "windDirDeg": 251
+
+        }
+
+        result = predict_aqi(
+            station_id,
+            aqi_history,
+            weather
+        )
+
+        return result
+
+    except FileNotFoundError:
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"Model not found for station {station_id}"
+        )
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )

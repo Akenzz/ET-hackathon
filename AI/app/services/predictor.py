@@ -1,23 +1,62 @@
-import pandas as pd
+from app.services.model_manager import load_model
+from app.services.feature_builder import build_features
 
 
-def build_future_dataframe(weather: dict, hours=24):
+def predict_aqi(
+    station_id: str,
+    aqi_history: list,
+    weather: dict
+):
+    """
+    Predict AQI using the production XGBoost model.
 
-    now = pd.Timestamp.now().floor("h")
+    Parameters
+    ----------
+    station_id : str
 
-    future_dates = pd.date_range(
-        start=now,
-        periods=hours,
-        freq="h"
+    aqi_history :
+        [AQI(t-3), AQI(t-2), AQI(t-1)]
+
+    weather :
+        {
+            tempC,
+            humidity,
+            precipMm,
+            pressure,
+            windSpeedKmh,
+            windDirDeg
+        }
+    """
+
+    # --------------------------
+    # Load Model
+    # --------------------------
+
+    model = load_model(station_id)
+
+    # --------------------------
+    # Build Features
+    # --------------------------
+
+    X = build_features(
+        aqi_history,
+        weather
     )
 
-    future = pd.DataFrame({
-        "ds": future_dates,
-        "tempC": weather["tempC"],
-        "humidity": weather["humidity"],
-        "windSpeedKmh": weather["windSpeedKmh"],
-        "windDirDeg": weather["windDirDeg"],
-        "precipMm": weather["precipMm"]
-    })
+    # --------------------------
+    # Predict
+    # --------------------------
 
-    return future
+    prediction = model.predict(X)[0]
+
+    prediction = float(prediction)
+
+    # AQI should always be between 0 and 500
+
+    prediction = max(0, prediction)
+    prediction = min(500, prediction)
+
+    return {
+        "stationId": station_id,
+        "predictedAQI": round(prediction, 2)
+    }

@@ -1,25 +1,30 @@
+import pickle
 from pathlib import Path
-import joblib
 
-# Project root
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[1]
 
-MODELS_DIR = BASE_DIR / "models"
-
-BOOTSTRAP_MODEL = MODELS_DIR / "delhi_bootstrap_model.pkl"
+BASE_MODEL_DIR = BASE_DIR / "models" / "base"
+FINETUNED_MODEL_DIR = BASE_DIR / "models" / "finetuned"
 
 
 def load_model(station_id: str):
-    """
-    Loads station-specific model if available.
-    Otherwise loads bootstrap model.
-    """
 
-    station_model = MODELS_DIR / f"{station_id}.pkl"
+    finetuned = FINETUNED_MODEL_DIR / f"{station_id}.pkl"
 
-    if station_model.exists():
-        print(f"Loading station model: {station_model.name}")
-        return joblib.load(station_model)
+    if finetuned.exists():
+        print(f"Loading finetuned model: {finetuned}")
 
-    print("Loading bootstrap model")
-    return joblib.load(BOOTSTRAP_MODEL)
+        with open(finetuned, "rb") as f:
+            return pickle.load(f)
+
+    base = BASE_MODEL_DIR / f"{station_id}.pkl"
+
+    if base.exists():
+        print(f"Loading base model: {base}")
+
+        with open(base, "rb") as f:
+            return pickle.load(f)
+
+    raise FileNotFoundError(
+        f"Model not found.\nLooked for:\n{base}\n{finetuned}"
+    )
