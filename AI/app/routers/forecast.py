@@ -76,7 +76,15 @@ def forecast(
             weather_forecast,
 
         )
-
+        from app.services.cache import set_cache
+        set_cache(
+            station_id=data["stationId"],
+            station_name=data["stationName"],
+            geo=data["geoFeatures"],
+            forecast=predictions,
+            latest_pollutants=data["aqiHistory"][-1],
+            current_weather=data["weatherForecast"][0]
+        )
         return {
 
             "stationId": data["stationId"],

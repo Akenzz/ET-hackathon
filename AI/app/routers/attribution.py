@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-import requests
 
+from app.services.cache import get_cache, set_cache
 from app.services.attribution.engine import attribute_sources
 
 router = APIRouter(
@@ -8,43 +8,27 @@ router = APIRouter(
     tags=["Attribution"]
 )
 
-JAVA_URL = "http://localhost:8000/forecast"
-
 
 @router.get("/{station_id}")
 def get_attribution(station_id: str):
 
     try:
 
-        response = requests.get(
-            f"{JAVA_URL}/{station_id}",
-            params={
-                "history": 3,
-                "horizon": 1
-            }
-        )
+        cache = get_cache(station_id)
 
-        response.raise_for_status()
-
-        data = response.json()
+        if cache is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Forecast not found. Please generate forecast first."
+            )
 
         # --------------------------
-        # Latest Pollutant Snapshot
+        # Read from Forecast Cache
         # --------------------------
 
-        latest = data["aqiHistory"][-1]
-
-        # --------------------------
-        # Current Weather
-        # --------------------------
-
-        weather = data["weatherForecast"][0]
-
-        # --------------------------
-        # Geo Features
-        # --------------------------
-
-        geo = data["geoFeatures"]
+        latest = cache["latest_pollutants"]
+        weather = cache["current_weather"]
+        geo = cache["geo"]
 
         result = attribute_sources(
             weather=weather,
@@ -52,11 +36,20 @@ def get_attribution(station_id: str):
             pollutants=latest
         )
 
+        # --------------------------
+        # Cache Attribution Result
+        # --------------------------
+
+        set_cache(
+            station_id=station_id,
+            attribution=result
+        )
+
         return {
 
-            "stationId": data["stationId"],
+            "stationId": station_id,
 
-            "stationName": data["stationName"],
+            "stationName": cache["stationName"],
 
             "timestamp": latest["timestamp"],
 

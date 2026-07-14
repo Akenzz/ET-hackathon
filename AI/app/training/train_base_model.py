@@ -1,1 +1,0 @@
-# DEPRECATED: This file has been moved to scripts/prophet_training/train_base_model.py

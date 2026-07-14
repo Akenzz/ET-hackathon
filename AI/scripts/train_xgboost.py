@@ -112,7 +112,7 @@ print(f"MAE  : {mae:.2f}")
 # SAVE MODEL
 # -------------------------------------------------------
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
-model_output_path = MODELS_DIR / f"{STATION_ID}_xgb.pkl"
+model_output_path = MODELS_DIR / f"{STATION_ID}.pkl"
 
 with open(model_output_path, "wb") as f:
     pickle.dump(model, f)
