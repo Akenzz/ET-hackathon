@@ -75,7 +75,7 @@ def get_latest_reading(station_id: str) -> dict[str, Any] | None:
         }
     Returns None if the service is unreachable or returns an error.
     """
-    data = _get("/readings/latest", params={"station_id": station_id})
+    data = _get("/readings/latest", params={"stationId": station_id})
     if data is None:
         logger.warning(
             "[java_client] get_latest_reading: no data for station '%s'", station_id

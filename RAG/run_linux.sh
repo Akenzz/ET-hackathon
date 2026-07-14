@@ -28,4 +28,4 @@ fi
 "$PYTHON_BIN" -m pip install -r "$REPO_DIR/requirements.txt"
 
 cd "$RAG_DIR"
-exec "$PYTHON_BIN" -m uvicorn app.main:app --reload --port 8002
+exec "$PYTHON_BIN" -m uvicorn app.main:app --reload --port 8080

@@ -120,6 +120,9 @@ def get_relevant_guidance(
         logger.error("[retrieval] Failed to initialise vector store: %s", exc)
         return []
 
+    # DEBUG: print exact text being embedded (remove or guard with APP_ENV in prod)
+    print(f"[retrieval] EMBEDDING QUERY: {query!r}  | aqi={current_aqi} | pop={population}")
+
     # Embed the query
     query_vector: list[float] = embedder.encode(query).tolist()
 

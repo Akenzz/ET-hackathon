@@ -14,13 +14,13 @@ Sends 5 requests covering:
 Usage
 ─────
     # Server must be running first:
-    #   .venv/bin/uvicorn app.main:app --port 8002 --reload
+    #   .venv/bin/uvicorn app.main:app --port 8080 --reload
     #
     python scripts/test_chat.py [base_url] [station_id]
 
     # defaults:
-    #   base_url   = http://localhost:8002
-    #   station_id = DEL-001
+    #   base_url   = http://localhost:8080
+    #   station_id = 2553
 """
 
 from __future__ import annotations
@@ -32,8 +32,8 @@ from pathlib import Path
 import requests
 
 # ── config ────────────────────────────────────────────────────────────────────
-BASE_URL   = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8002"
-STATION_ID = sys.argv[2] if len(sys.argv) > 2 else "DEL-001"
+BASE_URL   = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8080"
+STATION_ID = sys.argv[2] if len(sys.argv) > 2 else "2553"
 ENDPOINT   = f"{BASE_URL}/api/v1/chat"
 TIMEOUT    = 60  # Groq can take a moment on first call
 
@@ -64,7 +64,7 @@ def post_chat(
     except requests.exceptions.ConnectionError:
         print(f"  ❌  Cannot connect to {ENDPOINT}")
         print("      Make sure the server is running:")
-        print("      .venv/bin/uvicorn app.main:app --port 8002\n")
+        print("      .venv/bin/uvicorn app.main:app --port 8080\n")
         return None
 
     if expect_error:

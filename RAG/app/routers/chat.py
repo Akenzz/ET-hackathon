@@ -28,13 +28,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.clients import java_client
-from app.services.context_builder import assemble_context
+from app.services.context_builder import assemble_context, _aqi_to_category
 from app.services.guardrails import (
     check_input,
     check_response_safety,
     get_fallback_response,
 )
-from app.services.llm_client import generate_response
+from app.services.llm_client import generate_response, translate_to_english
 from app.services.retrieval import get_relevant_guidance
 from app.services.population_classifier import classify_population
 
@@ -66,6 +66,7 @@ class ChatResponse(BaseModel):
     aqi_context: dict[str, Any] | None = None
     sources: list[str]
     session_id: str
+    debug: dict[str, Any] | None = None  # set only when APP_ENV=development
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -95,15 +96,22 @@ def _append_turn(session_id: str, user_msg: str, assistant_msg: str) -> None:
 
 
 def _extract_aqi_context(reading: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Convert a raw reading dict into the response aqi_context shape."""
+    """Convert a raw reading dict into the response aqi_context shape.
+
+    Java DTO (LatestReadingResponseDto) serialises as camelCase:
+        { stationId, aqi, timestamp, pollutants: { pm25, pm10, no2, … } }
+    """
     if not reading:
         return None
+    pollutants: dict[str, Any] = reading.get("pollutants") or {}
+    aqi_val = reading.get("aqi")
     return {
-        "station_id":  reading.get("station_id", ""),
-        "aqi":         reading.get("aqi", reading.get("aqi_value")),
-        "category":    reading.get("category", reading.get("aqi_category", "")),
-        "pm25":        reading.get("pm25"),
-        "pm10":        reading.get("pm10"),
+        "station_id":  reading.get("stationId", ""),
+        "aqi":         aqi_val,
+        "category":    _aqi_to_category(aqi_val),   # derived — Java DTO has no category field
+        "pm25":        pollutants.get("pm25"),
+        "pm10":        pollutants.get("pm10"),
+        "no2":         pollutants.get("no2"),
         "timestamp":   reading.get("timestamp", ""),
     }
 
@@ -162,7 +170,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
     stations = java_client.get_stations()
     if stations is not None:
         # Service is up — validate station_id
-        known_ids = {str(s.get("station_id", "")) for s in stations}
+        known_ids = {str(s.get("stationId", "")) for s in stations}
         if req.station_id not in known_ids:
             raise HTTPException(
                 status_code=400,
@@ -173,25 +181,62 @@ async def chat(req: ChatRequest) -> ChatResponse:
                 ),
             )
 
-    # ── 5. Context assembly ──────────────────────────────────────────────────
-    context = assemble_context(query=req.query, station_id=req.station_id)
+    current_aqi: int = int(reading.get("aqi", 0)) if reading else 0
 
-    # ── 6. Retrieve chunks to get source section names + detect no-match ─────
-    current_aqi: int = 0
-    if reading:
-        current_aqi = int(reading.get("aqi", reading.get("aqi_value", 0)))
+    # ── 5. Translate query for retrieval (embedding model is English-optimised) ─
+    # Only do the translation Groq call when the request language is non-English.
+    # The *original* query is kept for the LLM response generation so the user
+    # gets an answer that contextually echoes their own wording/language.
+    retrieval_query = (
+        translate_to_english(req.query)
+        if language != "en"
+        else req.query
+    )
+    if retrieval_query != req.query:
+        logger.info(
+            "[chat] query translated for retrieval | original=%.60s… | translated=%.60s…",
+            req.query, retrieval_query,
+        )
 
-    population = classify_population(req.query)
-    effective_aqi = current_aqi if current_aqi > 0 else 100   # fallback for offline Java
+    # ── 6. Context assembly (uses retrieval_query for embed + population) ──────
+    context = assemble_context(
+        query=req.query,
+        station_id=req.station_id,
+        retrieval_query=retrieval_query,
+    )
+
+    # ── 7. Retrieve chunks for sources list + debug payload ───────────────────
+    population = classify_population(retrieval_query)
+    effective_aqi = current_aqi if current_aqi > 0 else 100
 
     chunks = get_relevant_guidance(
-        query=req.query,
+        query=retrieval_query,
         current_aqi=effective_aqi,
         population=population,
         n_results=3,
     )
 
     sources: list[str] = [c.section for c in chunks]
+
+    # Build debug payload (chunks + full context string) — dev mode only
+    import os as _os
+    _debug: dict[str, Any] | None = None
+    if _os.getenv("APP_ENV", "development") == "development":
+        _debug = {
+            "context_sent_to_llm": context,
+            "retrieval_query": retrieval_query,   # shows translation result
+            "population": population,
+            "chunks": [
+                {
+                    "section": c.section,
+                    "score": round(c.score, 4),
+                    "aqi_category": c.metadata.get("aqi_category", ""),
+                    "population": c.metadata.get("population", ""),
+                    "text_snippet": c.text[:300] + ("…" if len(c.text) > 300 else ""),
+                }
+                for c in chunks
+            ],
+        }
 
     if not chunks:
         fallback = get_fallback_response(current_aqi if current_aqi > 0 else None)
@@ -203,6 +248,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
             aqi_context=_extract_aqi_context(reading),
             sources=[],
             session_id=session_id,
+            debug=_debug,
         )
 
     # ── 7. LLM generation ────────────────────────────────────────────────────
@@ -243,4 +289,5 @@ async def chat(req: ChatRequest) -> ChatResponse:
         aqi_context=_extract_aqi_context(reading),
         sources=sources,
         session_id=session_id,
+        debug=_debug,
     )

@@ -3,9 +3,10 @@ Set-StrictMode -Version Latest
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $BackendDir = $ScriptDir
+$WrapperProps = Join-Path $BackendDir '.mvn\wrapper\maven-wrapper.properties'
 $MvnwCmd = Join-Path $BackendDir 'mvnw.cmd'
 
-if (Test-Path $MvnwCmd) {
+if ((Test-Path $MvnwCmd) -and (Test-Path $WrapperProps)) {
     Set-Location $BackendDir
     & $MvnwCmd -q -DskipTests dependency:go-offline
     & $MvnwCmd spring-boot:run
@@ -17,4 +18,4 @@ if (Get-Command mvn -ErrorAction SilentlyContinue) {
     return
 }
 
-throw 'Neither backend/mvnw.cmd nor mvn was available.'
+throw 'Neither a complete backend/mvnw setup nor mvn was available.'
