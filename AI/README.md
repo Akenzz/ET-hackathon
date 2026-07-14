@@ -4,6 +4,43 @@ This module contains the Python AI forecasting service, model evaluation, and tr
 
 ---
 
+## Architecture
+
+```
+Forecast Click
+        │
+        ▼
+Java Backend (ONE TIME)
+        │
+        ▼
+XGBoost Recursive Predictor
+        │
+        ▼
+Forecast + Geo
+        │
+        ▼
+Cache
+        │
+        ├──────────────► Attribution
+        │                    │
+        │                    ▼
+        │                 Cache
+        │
+        └──────────────► Health Advisory
+                             │
+                             ▼
+                    Groq (FIRST TIME ONLY)
+                             │
+                             ▼
+                           Cache
+```
+
+- **Forecast** makes exactly one call to the Java backend, runs XGBoost, and stores the forecast plus geo/pollutant/weather metadata in cache.
+- **Attribution** reads from the forecast cache and does not call Java again.
+- **Health Advisory** reads from the forecast cache, calls Groq only on first request for a station, and caches the advisory.
+
+---
+
 ## Folder Structure
 
 ```text
@@ -11,9 +48,10 @@ AI/
   app/
     main.py                       # FastAPI application entrypoint
     routers/
-      forecast.py                 # GET /forecast/{station_id} (calls Java, returns predictions)
-      retrain.py                  # POST /retrain/{station_id} (retrains XGBoost model)
-      attribution.py              # GET /attribution/{station_id} (rule-based source attribution)
+      forecast.py                 # GET /forecast/{station_id}
+      retrain.py                  # POST /retrain/{station_id}
+      attribution.py              # GET /attribution/{station_id} (cache-driven)
+      health_advisory.py          # GET /health-advisory/{station_id}
     services/
       aqi_category.py             # Map AQI float values to standard CPCB categories
       cpcb_aqi.py                 # Linear interpolation to compute AQI from PM2.5/PM10
@@ -22,7 +60,11 @@ AI/
       predictor.py                # XGBoost single-step prediction wrapper
       recursive_predictor.py      # Autoregressive multi-step prediction loop
       trainer.py                  # XGBoost model retraining service function
-      attribution/
+      cache.py                    # In-memory forecast/attribution/advisory cache
+      prompt_builder.py           # LLM prompt builder for health advisories
+      groq_client.py              # Groq API client (reads GROQ_API_KEY from env)
+      advisory_engine.py          # Health advisory orchestration
+      attribution/                # Source attribution engine
         engine.py                 # Orchestration of the attribution scoring engine
         explanations.py           # Text explanations formatting for likely sources
         rules.py                  # Attribution scoring rules (meteorological, traffic, etc.)
@@ -73,6 +115,16 @@ From the `AI` directory:
    pip install -r requirements.txt
    ```
 
+3. **Configure environment variables:**
+
+   Create a `.env` file in the `AI/` directory:
+
+   ```text
+   GROQ_API_KEY=your_groq_api_key_here
+   ```
+
+   The health advisory endpoint will fail without a valid `GROQ_API_KEY`.
+
 ---
 
 ## FastAPI Service
@@ -80,6 +132,7 @@ From the `AI` directory:
 ### Run the FastAPI App
 
 Start the development server from the `AI/` root directory:
+
 ```bash
 uvicorn app.main:app --reload --port 8001
 ```
@@ -92,15 +145,34 @@ uvicorn app.main:app --reload --port 8001
   1. Requests historical readings and weather forecast from the Java service (default: `http://localhost:8000/forecast/{station_id}`).
   2. Builds rolling feature vectors (lag values, moving average, temperature, wind, etc.).
   3. Uses the **XGBoost** model to forecast one hour ahead, updates lags recursively, and predicts the 24-hour horizon.
+  4. Caches the forecast, geo features, latest pollutant snapshot, and current weather.
 - **Response:** Detailed JSON listing predictions, confidence intervals, and CPCB category categories.
 
 #### 2. `GET /attribution/{station_id}`
 - **Description:** Calculates source attribution breakdown (Traffic, Industry, Construction, Meteorology).
+- **Prerequisite:** A forecast must already exist in cache. Call `GET /forecast/{station_id}` first.
 - **Workflow:**
-  1. Pulls meteorological, geographical, and pollutant data.
+  1. Reads latest pollutants, weather, and geo features from the forecast cache.
   2. Applies heuristic scoring rules (e.g. rush hours, wind speeds, NO₂ and SO₂ levels, PM10/PM2.5 ratios).
   3. Returns the most likely pollution source, confidence level, and contributing factors.
 
+#### 3. `GET /health-advisory/{station_id}`
+- **Description:** Generates a multilingual citizen health advisory.
+- **Prerequisite:** A forecast must already exist in cache. Call `GET /forecast/{station_id}` first.
+- **Workflow:**
+  1. Reads the cached forecast and geo features.
+  2. Builds a prompt for the Groq LLM.
+  3. Calls Groq only on the first request; subsequent requests are served from cache.
+- **Response:** JSON advisories in English, Hindi, and Kannada for general public, schools, elderly, and outdoor workers.
+
+#### 4. `POST /retrain/{station_id}`
+- **Description:** Retrains an XGBoost model for a station and saves it to `app/models/finetuned/{station_id}.pkl`.
+- **Workflow:**
+  1. Loads processed training data from `data/processed/`.
+  2. Trains an XGBoost regressor on lag and weather features.
+  3. Persists the model, which takes precedence over the base model on the next forecast.
+
+---
 
 ## Running Developer Scripts
 
@@ -133,3 +205,11 @@ All developer utility scripts are located under the `scripts/` directory. They c
 2. **Prophet (Development/Baseline):**
    - Implemented under `scripts/prophet_training/`.
    - Used for structural time-series analysis, accounting for daily/weekly/yearly seasonality.
+
+---
+
+## Environment Notes
+
+- The Java backend is expected at `http://localhost:8000`.
+- The in-memory cache is process-local and expires after 30 minutes.
+- Generated models (`.pkl`) and raw CSVs are gitignored.
