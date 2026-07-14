@@ -25,9 +25,8 @@ htmlcov/
 .env.*
 
 # Generated AI artifacts
-data/historical/raw/*.csv
-app/models/base/*.pkl
-app/models/finetuned/*.pkl
+data/raw/*.csv
+models/*.pkl
 
 # Logs
 *.log

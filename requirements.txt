@@ -1,0 +1,19 @@
+# common
+fastapi
+uvicorn[standard]
+requests
+python-dotenv
+
+# sarosh
+pandas
+numpy
+matplotlib
+scikit-learn
+prophet
+xgboost
+
+# Amogh
+chromadb
+sentence-transformers
+pyyaml
+openai
