@@ -14,4 +14,16 @@ public class GeoFeatureDto {
     private Integer majorRoadsCount;
 
     private Double nearestIndustrialDistanceKm;
+
+    private Integer hospitalCount;
+
+    private Integer schoolCount;
+
+    private Integer kindergartenCount;
+
+    private Integer parkCount;
+
+    private Integer busStopCount;
+
+    private Integer marketCount;
 }

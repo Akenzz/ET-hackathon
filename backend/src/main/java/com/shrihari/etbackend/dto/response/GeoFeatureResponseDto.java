@@ -15,4 +15,16 @@ public class GeoFeatureResponseDto {
 
     private Double nearestIndustrialDistKm;
 
+    private Integer hospitalCount;
+
+    private Integer schoolCount;
+
+    private Integer kindergartenCount;
+
+    private Integer parkCount;
+
+    private Integer busStopCount;
+
+    private Integer marketCount;
+
 }

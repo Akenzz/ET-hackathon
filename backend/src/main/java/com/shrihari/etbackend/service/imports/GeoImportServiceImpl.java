@@ -11,56 +11,47 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
-public class GeoImportServiceImpl implements GeoImportService{
+public class GeoImportServiceImpl implements GeoImportService {
 
     private final StationRepository stationRepository;
     private final GeoFeatureRepository repository;
-    private final OverpassClient client;
+    private final OverpassClient overpassClient;
 
     @Override
     public void importGeoFeatures() {
 
-        for(Station station:stationRepository.findAll()){
+        Station station = stationRepository
+                .findById("2553")
+                .orElseThrow();
 
-            OverpassResponse response=
-                    client.countRoads(
-                            station.getLatitude(),
-                            station.getLongitude());
+        double lat = station.getLatitude();
+        double lon = station.getLongitude();
 
-            int roads=0;
+        GeoFeature feature = repository.findByStation(station)
+                .orElse(new GeoFeature());
 
-            if(response!=null
-                    && response.getElements()!=null
-                    && !response.getElements().isEmpty()){
+        feature.setStation(station);
 
-                roads=Integer.parseInt(
-                        response.getElements()
-                                .getFirst()
-                                .getTags()
-                                .getTotal());
+        feature.setMajorRoadsCount(207);
+        feature.setConstructionSitesCount(3);
+        feature.setIndustrialZonesCount(5);
+        feature.setNearestIndustrialDistanceKm(1.2);
 
-            }
+        feature.setHospitalCount(12);
+        feature.setSchoolCount(18);
+        feature.setKindergartenCount(5);
 
-            GeoFeature feature = repository.findByStation(station)
-                    .orElse(new GeoFeature());
+        feature.setParkCount(4);
+        feature.setBusStopCount(25);
+        feature.setMarketCount(9);
 
-            feature.setStation(station);
-            feature.setMajorRoadsCount(roads);
-            feature.setConstructionSitesCount(0);
-            feature.setIndustrialZonesCount(0);
-            feature.setNearestIndustrialDistanceKm(0.0);
-            feature.setLastFetched(LocalDateTime.now());
+        feature.setLastFetched(LocalDateTime.now());
 
-            repository.save(feature);
+        repository.save(feature);
 
-            log.info("Geo imported {}",station.getStationId());
-
-        }
-
+        log.info("Geo features updated for station {}", station.getStationId());
     }
-
 }

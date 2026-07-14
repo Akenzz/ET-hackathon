@@ -35,6 +35,15 @@ public class GeoFeatureServiceImpl implements GeoFeatureService {
                 .constructionSitesCount(geoFeature.getConstructionSitesCount())
                 .industrialZonesCount(geoFeature.getIndustrialZonesCount())
                 .nearestIndustrialDistKm(geoFeature.getNearestIndustrialDistanceKm())
+
+                .hospitalCount(geoFeature.getHospitalCount())
+                .schoolCount(geoFeature.getSchoolCount())
+                .kindergartenCount(geoFeature.getKindergartenCount())
+
+                .parkCount(geoFeature.getParkCount())
+                .busStopCount(geoFeature.getBusStopCount())
+                .marketCount(geoFeature.getMarketCount())
+
                 .build();
     }
 }

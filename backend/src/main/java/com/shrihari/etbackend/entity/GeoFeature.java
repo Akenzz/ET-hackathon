@@ -31,4 +31,16 @@ public class GeoFeature {
     private Double nearestIndustrialDistanceKm;
 
     private LocalDateTime lastFetched;
+
+    private Integer hospitalCount;
+
+    private Integer schoolCount;
+
+    private Integer kindergartenCount;
+
+    private Integer parkCount;
+
+    private Integer busStopCount;
+
+    private Integer marketCount;
 }

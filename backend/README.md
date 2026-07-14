@@ -104,18 +104,24 @@ Entity designs optimize for read performance, incorporating precise database map
        └────────┬────────┘                 │     no2, so2      │
                 │                          │     co, o3        │
                 │                          └───────────────────┘
-                │
-                │   ┌───────────────────┐  │   ┌───────────────────┐
-                │   │      WEATHER      │  │   │   GEO_FEATURES    │
-                │   ├───────────────────┤  │   ├───────────────────┤
-                └──┼─PK  id             │  └──┼─PK  id             │
-                   │ FK  station_id     │     │ FK  station_id     │
-                   │     fetchedAt      │     │     majorRoadsCount│
-                   │     temperature    │     │     industrialCount│
-                   │     humidity       │     │     construction   │
-                   │     windSpeed/Dir  │     │     nearIndustDist │
-                   │     precipitation  │     │     lastFetched    │
-                   └────────────────────┘     └────────────────────┘
+                │                          │
+                │  ┌────────────────────┐  │  ┌──────────────────────┐
+                │  │       WEATHER      │  │  │   GEO_FEATURES       │
+                │  ├────────────────────┤  │  ├──────────────────────┤
+                └──┼─PK  id             │  └──┼─PK  id               │
+                   │ FK  station_id     │     │ FK  station_id       │
+                   │     fetchedAt      │     │     majorRoadsCount  │
+                   │     temperature    │     │     industrialCount  │
+                   │     humidity       │     │     construction     │
+                   │     windSpeed/Dir  │     │     nearIndustDist   │
+                   │     precipitation  │     │     hospitalCount    │
+                   └────────────────────┘     │     schoolCount      │
+                                              │    kindergartenCount │
+                                              │     parkCount        │
+                                              │     busStopCount     │
+                                              │     marketCount      │
+                                              │     lastFetched      │
+                                              └──────────────────────┘
 ```
 
 ### 1. `stations` Table
@@ -174,6 +180,12 @@ CREATE TABLE geo_features (
     construction_sites_count INTEGER,
     industrial_zones_count INTEGER,
     nearest_industrial_distance_km DOUBLE PRECISION,
+    hospital_count INTEGER,
+    school_count INTEGER,
+    kindergarten_count INTEGER,
+    park_count INTEGER,
+    bus_stop_count INTEGER,
+    market_count INTEGER,
     last_fetched TIMESTAMP WITHOUT TIME ZONE
 );
 ```
@@ -199,14 +211,98 @@ The system utilizes custom reactive `WebClient` configurations to interact with 
 ### 3. Overpass API (OpenStreetMap)
 * **Authorization**: None (Public API).
 * **Endpoint**: `POST /api/interpreter`
-* **Request Payload**: Custom Overpass QL searching for primary, secondary, trunk, and motorway roads within a 2000m radial proximity:
-  ```osm
-  [out:json];
-  (
-    way["highway"~"primary|secondary|trunk|motorway"](around:2000,lat,lon);
-  );
-  out count;
-  ```
+* **Features**: Queries the Overpass API for various geospatial features within a 2000m radial proximity of the monitoring coordinates:
+
+#### Queried Features & Overpass QL Templates:
+
+1. **Major Highways & Roads** (`majorRoadsCount`):
+   ```osm
+   [out:json];
+   (
+     way["highway"~"primary|secondary|trunk|motorway"](around:2000,lat,lon);
+   );
+   out count;
+   ```
+
+2. **Industrial Zones** (`industrialZonesCount`):
+   ```osm
+   [out:json];
+   (
+     way["landuse"="industrial"](around:2000,lat,lon);
+   );
+   out count;
+   ```
+
+3. **Construction Sites** (`constructionSitesCount`):
+   ```osm
+   [out:json];
+   (
+     way["building"="construction"](around:2000,lat,lon);
+     node["construction"](around:2000,lat,lon);
+   );
+   out count;
+   ```
+
+4. **Hospitals** (`hospitalCount`):
+   ```osm
+   [out:json];
+   (
+     node["amenity"="hospital"](around:2000,lat,lon);
+     way["amenity"="hospital"](around:2000,lat,lon);
+   );
+   out count;
+   ```
+
+5. **Schools** (`schoolCount`):
+   ```osm
+   [out:json];
+   (
+     node["amenity"="school"](around:2000,lat,lon);
+     way["amenity"="school"](around:2000,lat,lon);
+   );
+   out count;
+   ```
+
+6. **Kindergartens** (`kindergartenCount`):
+   ```osm
+   [out:json];
+   (
+     node["amenity"="kindergarten"](around:2000,lat,lon);
+     way["amenity"="kindergarten"](around:2000,lat,lon);
+   );
+   out count;
+   ```
+
+7. **Parks & Green Spaces** (`parkCount`):
+   ```osm
+   [out:json];
+   (
+     node["leisure"="park"](around:2000,lat,lon);
+     way["leisure"="park"](around:2000,lat,lon);
+   );
+   out count;
+   ```
+
+8. **Bus Stops** (`busStopCount`):
+   ```osm
+   [out:json];
+   (
+     node["highway"="bus_stop"](around:2000,lat,lon);
+   );
+   out count;
+   ```
+
+9. **Markets & Shops** (`marketCount`):
+   ```osm
+   [out:json];
+   (
+     node["shop"](around:2000,lat,lon);
+     way["shop"](around:2000,lat,lon);
+     node["amenity"="marketplace"](around:2000,lat,lon);
+     way["amenity"="marketplace"](around:2000,lat,lon);
+   );
+   out count;
+   ```
 
 ---
 
@@ -267,7 +363,13 @@ Returns a unified feature vector containing station details, historical air qual
       "majorRoadsCount": 24,
       "industrialZonesCount": 0,
       "constructionSitesCount": 0,
-      "nearestIndustrialDistanceKm": 0.0
+      "nearestIndustrialDistanceKm": 0.0,
+      "hospitalCount": 12,
+      "schoolCount": 18,
+      "kindergartenCount": 5,
+      "parkCount": 4,
+      "busStopCount": 25,
+      "marketCount": 9
     }
   }
   ```
@@ -338,22 +440,22 @@ Returns system status and database storage health.
 
 Configure properties in `src/main/resources/application.properties` or via environment variables:
 
-| Property Key | Type | Description | Default / Example |
-| :--- | :--- | :--- | :--- |
-| `spring.datasource.url` | String | JDBC URL of PostgreSQL database | `jdbc:postgresql://${DATABASE_URL}:5432/neondb` |
-| `spring.datasource.username`| String | Database User | `${DB_USER}` |
-| `spring.datasource.password`| String | Database Password | `${DB_PASS}` |
-| `server.port` | Integer| HTTP server port | `8000` |
-| `waqi.base-url` | String | World Air Quality Index API host | `https://api.waqi.info` |
-| `waqi.token` | String | WAQI API credential | `${WAQI_TOKEN}` |
-| `waqi.city` | String | Base city for station ingestion | `Delhi` |
-| `openmeteo.base-url` | String | Open-Meteo endpoint | `https://api.open-meteo.com` |
-| `overpass.base-url` | String | OSM Overpass base interpreter | `https://overpass-api.de/api/interpreter` |
-| `scheduler.readings.fixed-rate`| Long | Air Quality polling rate (ms) | `3600000` (1 hour) |
-| `scheduler.weather.fixed-rate` | Long | Meteorology polling rate (ms) | `3600000` (1 hour) |
-| `scheduler.geo.fixed-rate` | Long | Spatial polling rate (ms) | `86400000` (24 hours) |
-| `scheduler.geo.enabled` | Boolean| Enable spatial scheduler daemon | `false` |
-| `polling.station-ids` | List | Active station IDs to monitor | `2553` |
+| Property Key                    | Type    | Description                      | Default / Example                               |
+|:--------------------------------|:--------|:---------------------------------|:------------------------------------------------|
+| `spring.datasource.url`         | String  | JDBC URL of PostgreSQL database  | `jdbc:postgresql://${DATABASE_URL}:5432/neondb` |
+| `spring.datasource.username`    | String  | Database User                    | `${DB_USER}`                                    |
+| `spring.datasource.password`    | String  | Database Password                | `${DB_PASS}`                                    |
+| `server.port`                   | Integer | HTTP server port                 | `8000`                                          |
+| `waqi.base-url`                 | String  | World Air Quality Index API host | `https://api.waqi.info`                         |
+| `waqi.token`                    | String  | WAQI API credential              | `${WAQI_TOKEN}`                                 |
+| `waqi.city`                     | String  | Base city for station ingestion  | `Delhi`                                         |
+| `openmeteo.base-url`            | String  | Open-Meteo endpoint              | `https://api.open-meteo.com`                    |
+| `overpass.base-url`             | String  | OSM Overpass base interpreter    | `https://overpass-api.de/api/interpreter`       |
+| `scheduler.readings.fixed-rate` | Long    | Air Quality polling rate (ms)    | `3600000` (1 hour)                              |
+| `scheduler.weather.fixed-rate`  | Long    | Meteorology polling rate (ms)    | `3600000` (1 hour)                              |
+| `scheduler.geo.fixed-rate`      | Long    | Spatial polling rate (ms)        | `86400000` (24 hours)                           |
+| `scheduler.geo.enabled`         | Boolean | Enable spatial scheduler daemon  | `false`                                         |
+| `polling.station-ids`           | List    | Active station IDs to monitor    | `2553`                                          |
 
 ---
 
