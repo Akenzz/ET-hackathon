@@ -40,12 +40,18 @@ export default function Home() {
   const [locating, setLocating] = useState(true);
 
   const [view, setView] = useState<View>("dashboard");
-  const [role, setRole] = useState<UserRole | null>(() => getStoredRole());
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [roleLoaded, setRoleLoaded] = useState(false);
 
   function handleSelectRole(r: UserRole) {
     setRole(r);
     storeRole(r);
   }
+
+  useEffect(() => {
+    setRole(getStoredRole());
+    setRoleLoaded(true);
+  }, []);
 
   const refreshReadings = useCallback(async (stationList: Station[]) => {
     const entries = await Promise.all(
