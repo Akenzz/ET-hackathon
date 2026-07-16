@@ -6,29 +6,49 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 BASE_MODEL_DIR = BASE_DIR / "models" / "base"
 FINETUNED_MODEL_DIR = BASE_DIR / "models" / "finetuned"
 
-# Java Station ID -> Local Model ID
-STATION_MAPPING = {
-    "2553": "235",
-    "2554": "236"
-}
-
 
 def load_model(station_id: str):
+    """
+    Load the model corresponding to the given station ID.
 
-    station_id = STATION_MAPPING.get(station_id, station_id)
+    Priority:
+    1. Finetuned model
+    2. Base model
+    """
+
+    # --------------------------
+    # Check finetuned model
+    # --------------------------
 
     finetuned = FINETUNED_MODEL_DIR / f"{station_id}.pkl"
 
     if finetuned.exists():
+
+        print(f"Loading finetuned model: {finetuned.name}")
+
         with open(finetuned, "rb") as f:
             return pickle.load(f)
+
+    # --------------------------
+    # Check base model
+    # --------------------------
 
     base = BASE_MODEL_DIR / f"{station_id}.pkl"
 
     if base.exists():
+
+        print(f"Loading base model: {base.name}")
+
         with open(base, "rb") as f:
             return pickle.load(f)
 
+    # --------------------------
+    # Not found
+    # --------------------------
+
     raise FileNotFoundError(
-        f"Model not found for mapped station {station_id}"
+        f"No model found for station '{station_id}'.\n"
+        f"Searched:\n"
+        f"{base}\n"
+        f"{finetuned}"
     )
