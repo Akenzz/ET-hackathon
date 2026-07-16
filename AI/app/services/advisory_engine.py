@@ -29,18 +29,11 @@ def generate_health_advisory(
         ↓
     Return
     """
-
     cache = get_cache(station_id)
 
     if cache is None:
 
-        raise Exception(
-            "Forecast not found. Generate forecast first."
-        )
-
-    # ------------------------------------
-    # Already generated?
-    # ------------------------------------
+        raise Exception("Forecast not found.")
 
     if cache.get("advisory") is not None:
 
@@ -48,43 +41,30 @@ def generate_health_advisory(
 
         return cache["advisory"]
 
-    # ------------------------------------
-    # Forecast
-    # ------------------------------------
+    highest = cache["highestForecast"]
 
-    forecast = cache["forecast"]
+    geo = cache["geo"]
 
-    # ------------------------------------
-    # Prompt
-    # ------------------------------------
+    attribution = cache.get("attribution")
 
     prompt = build_prompt(
 
-        station_name=station_name,
+        station_name=cache["stationName"],
 
-        forecast=forecast,
+        highest_forecast=highest,
 
-        hospitals=hospitals,
+        geo=geo,
 
-        schools=schools,
-
-        kindergartens=kindergartens
+        attribution=attribution
 
     )
-
-    # ------------------------------------
-    # Ask Groq
-    # ------------------------------------
-
+    print("=" * 80)
+    print("PROMPT")
+    print(prompt)
+    print("=" * 80)
     print("Calling Groq...")
 
-    response = ask_groq(prompt)
-
-    advisory = json.loads(response)
-
-    # ------------------------------------
-    # Save in cache
-    # ------------------------------------
+    advisory = ask_groq(prompt)
 
     set_cache(
 

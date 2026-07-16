@@ -1,60 +1,106 @@
 def build_prompt(
-
-    station_name,
-
-    forecast,
-
-    hospitals,
-
-    schools,
-
-    kindergartens
-
+    station_name: str,
+    highest_forecast: dict,
+    geo: dict,
+    attribution: dict = None
 ):
+    """
+    Builds the prompt sent to Groq.
+    """
 
-    highest = max(
-        forecast,
-        key=lambda x: x["aqi_predicted"]
-    )
+    aqi = highest_forecast["aqi_predicted"]
+    expected_time = highest_forecast["ts"]
+    category = highest_forecast["category"]
 
-    return f"""
+    prompt = f"""
+You are the CPCB Citizen Health Advisory AI.
+
+Generate ONLY valid JSON.
+
+Do NOT use markdown.
+Do NOT explain your reasoning.
+
+Current Situation
+
 Station:
 {station_name}
 
 Highest Forecast AQI:
-{highest['aqi_predicted']}
+{aqi}
 
 Expected Time:
-{highest['ts']}
+{expected_time}
 
-Nearby Vulnerable Locations
+AQI Category:
+{category}
 
-Hospitals:
-{hospitals}
+Nearby Vulnerable Infrastructure
 
-Schools:
-{schools}
+Hospitals: {geo.get("hospitalCount", 0)}
 
-Kindergartens:
-{kindergartens}
+Schools: {geo.get("schoolCount", 0)}
 
-Generate advisories for:
+Kindergartens: {geo.get("kindergartenCount", 0)}
 
-1. General Public
+Bus Stops: {geo.get("busStopCount", 0)}
 
-2. School Administrators
+Markets: {geo.get("marketCount", 0)}
 
-3. Elderly Citizens
+Parks: {geo.get("parkCount", 0)}
 
-4. Outdoor Workers
+Construction Sites: {geo.get("constructionSitesCount", 0)}
 
-Generate in
+Industrial Zones: {geo.get("industrialZonesCount", 0)}
 
-English
-
-Hindi
-
-Kannada
-
-Return ONLY JSON.
+Nearest Industrial Zone:
+{geo.get("nearestIndustrialDistKm", "Unknown")} km
 """
+
+    if attribution:
+
+        prompt += f"""
+
+Likely Pollution Source
+
+Source:
+{attribution.get("likelySource", "Unknown")}
+
+Confidence:
+{attribution.get("confidence", 0)}
+
+Contributing Factors:
+{", ".join(attribution.get("contributingFactors", []))}
+"""
+
+    prompt += """
+
+    IMPORTANT HEALTH RULES
+
+    If AQI is above 200:
+    - Advise people to reduce outdoor exposure.
+
+    If AQI is above 300:
+    - Schools should suspend outdoor sports.
+    - Elderly should remain indoors.
+    - Outdoor workers should wear N95 masks.
+    - Sensitive groups should avoid outdoor activity.
+
+    If AQI is above 400:
+    - Mention emergency-level pollution.
+    - Recommend avoiding non-essential outdoor travel.
+    - Never say "No action needed".
+
+    Use the nearby hospitals, schools, parks, bus stops and markets to make the advisory location-specific.
+
+    Generate advisories for:
+
+    1. General Public
+    2. School Administrators
+    3. Elderly Citizens
+    4. Outdoor Workers
+    5. Public Transport Commuters
+
+    Return ONLY JSON.
+
+    """
+    return prompt
