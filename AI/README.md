@@ -117,13 +117,17 @@ From the `AI` directory:
 
 3. **Configure environment variables:**
 
-   Create a `.env` file in the `AI/` directory:
-
+   A template file `.env.example` is provided in the `AI/` directory. Copy it to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+   Or create a `.env` file manually:
    ```text
    GROQ_API_KEY=your_groq_api_key_here
    ```
 
-   The health advisory endpoint will fail without a valid `GROQ_API_KEY`.
+   > [!NOTE]
+   > The Groq API client is initialized lazily. The FastAPI application will start successfully even if `GROQ_API_KEY` is not set; however, requests to `/health-advisory/{station_id}` will fail with an error when called without a valid key.
 
 ---
 
@@ -157,13 +161,15 @@ uvicorn app.main:app --reload --port 8001
   3. Returns the most likely pollution source, confidence level, and contributing factors.
 
 #### 3. `GET /health-advisory/{station_id}`
-- **Description:** Generates a multilingual citizen health advisory.
+- **Description:** Generates a location-specific citizen health advisory.
 - **Prerequisite:** A forecast must already exist in cache. Call `GET /forecast/{station_id}` first.
 - **Workflow:**
-  1. Reads the cached forecast and geo features.
-  2. Builds a prompt for the Groq LLM.
-  3. Calls Groq only on the first request; subsequent requests are served from cache.
-- **Response:** JSON advisories in English, Hindi, and Kannada for general public, schools, elderly, and outdoor workers.
+  1. Reads the cached forecast.
+  2. If geo features (vulnerable infrastructure) are not found in the cache, fetches them from the Java backend on-the-fly.
+  3. Checks if source attribution results (`/attribution/{station_id}`) have been cached; if so, dynamically injects the attribution details (likely source, confidence, and contributing factors) into the prompt to factor it into the LLM's assessment.
+  4. Builds a context-aware prompt for the Groq LLM.
+  5. Lazy-initializes the Groq client and queries Groq on the first request; subsequent requests for the same station are served directly from the cache.
+- **Response:** Detailed JSON advisory containing health instructions tailored to local infrastructure for the general public, school administrators, elderly citizens, outdoor workers, and public transport commuters.
 
 #### 4. `POST /retrain/{station_id}`
 - **Description:** Retrains an XGBoost model for a station and saves it to `app/models/finetuned/{station_id}.pkl`.

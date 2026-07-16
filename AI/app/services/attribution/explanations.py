@@ -8,6 +8,6 @@ def build_explanation(result, reasons):
 
         "confidence": result["confidence"],
 
-        "contributingFactors": reasons[source]
+        "contributingFactors": reasons.get(source, ["No significant contributing factors detected"])
 
     }
