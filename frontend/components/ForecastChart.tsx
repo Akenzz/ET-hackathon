@@ -16,6 +16,7 @@ type ForecastTooltipPoint = {
     aqi_predicted: number;
     confidence_low: number;
     confidence_high: number;
+    category?: string;
   };
 };
 
@@ -31,6 +32,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
       <p className="mt-1 font-data text-sm font-semibold" style={{ color: getAqiColor(p.aqi_predicted) }}>
         AQI {p.aqi_predicted}
       </p>
+      {p.category && <p className="text-fg-muted">{p.category}</p>}
       <p className="text-fg-faint">range {p.confidence_low}–{p.confidence_high}</p>
     </div>
   );

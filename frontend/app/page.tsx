@@ -41,17 +41,19 @@ export default function Home() {
 
   const [view, setView] = useState<View>("dashboard");
   const [role, setRole] = useState<UserRole | null>(null);
-  const [roleLoaded, setRoleLoaded] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setRole(getStoredRole());
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   function handleSelectRole(r: UserRole) {
     setRole(r);
     storeRole(r);
   }
-
-  useEffect(() => {
-    setRole(getStoredRole());
-    setRoleLoaded(true);
-  }, []);
 
   const refreshReadings = useCallback(async (stationList: Station[]) => {
     const entries = await Promise.all(
@@ -277,7 +279,11 @@ export default function Home() {
         </>
       )}
 
-      <ChatWidget stationId={selectedId} stationName={selectedStation?.name} />
+      <ChatWidget
+        key={selectedId ?? "no-station"}
+        stationId={selectedId}
+        stationName={selectedStation?.name}
+      />
     </div>
   );
 }
