@@ -62,13 +62,11 @@ public class ForecastServiceImpl implements ForecastService {
                             .o3(reading.getO3())
                             .build()
             );
-
         }
 
-        OpenMeteoResponse weather =
-                openMeteoClient.getCurrentWeather(
-                        station.getLatitude(),
-                        station.getLongitude());
+        OpenMeteoResponse weather = openMeteoClient.getCurrentWeather(
+                station.getLatitude(),
+                station.getLongitude());
 
         HourlyWeather hourly = weather.getHourly();
 
@@ -78,8 +76,7 @@ public class ForecastServiceImpl implements ForecastService {
 
         for (int i = 0; i < hourly.getTime().size() && forecast.size() < horizon; i++) {
 
-            LocalDateTime forecastTime =
-                    LocalDateTime.parse(hourly.getTime().get(i));
+            LocalDateTime forecastTime = LocalDateTime.parse(hourly.getTime().get(i));
 
             if (forecastTime.isAfter(now)) {
 
@@ -94,33 +91,43 @@ public class ForecastServiceImpl implements ForecastService {
                                 .precipitation(hourly.getPrecipitation().get(i))
                                 .build()
                 );
-
             }
-
         }
 
-        GeoFeature geo =
-                geoFeatureRepository.findByStation(station)
-                        .orElse(null);
+        GeoFeature geo = geoFeatureRepository
+                .findByStation_StationId(stationId)
+                .orElse(null);
 
         GeoFeatureDto geoDto;
 
         if (geo == null) {
 
             geoDto = GeoFeatureDto.builder()
+                    .majorRoadsCount(0)
                     .constructionSitesCount(0)
                     .industrialZonesCount(0)
-                    .majorRoadsCount(0)
                     .nearestIndustrialDistanceKm(0.0)
+                    .hospitalCount(0)
+                    .schoolCount(0)
+                    .kindergartenCount(0)
+                    .parkCount(0)
+                    .busStopCount(0)
+                    .marketCount(0)
                     .build();
 
         } else {
 
             geoDto = GeoFeatureDto.builder()
+                    .majorRoadsCount(geo.getMajorRoadsCount())
                     .constructionSitesCount(geo.getConstructionSitesCount())
                     .industrialZonesCount(geo.getIndustrialZonesCount())
-                    .majorRoadsCount(geo.getMajorRoadsCount())
                     .nearestIndustrialDistanceKm(geo.getNearestIndustrialDistanceKm())
+                    .hospitalCount(geo.getHospitalCount())
+                    .schoolCount(geo.getSchoolCount())
+                    .kindergartenCount(geo.getKindergartenCount())
+                    .parkCount(geo.getParkCount())
+                    .busStopCount(geo.getBusStopCount())
+                    .marketCount(geo.getMarketCount())
                     .build();
 
         }
@@ -128,8 +135,8 @@ public class ForecastServiceImpl implements ForecastService {
         return ForecastResponseDto.builder()
                 .stationId(station.getStationId())
                 .stationName(station.getName())
-                .horizon(horizon)
                 .history(history)
+                .horizon(horizon)
                 .aqiHistory(aqiHistory)
                 .weatherForecast(forecast)
                 .geoFeatures(geoDto)

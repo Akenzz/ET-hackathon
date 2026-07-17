@@ -1,4 +1,4 @@
-# 🌍 ET Backend — Environmental Intelligence Platform
+# ET Backend — Environmental Intelligence Platform
 
 [![Java Version](https://img.shields.io/badge/Java-21-orange?style=flat-square&logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1.0-brightgreen?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
@@ -108,19 +108,19 @@ Entity designs optimize for read performance, incorporating precise database map
                 │  ┌────────────────────┐  │  ┌──────────────────────┐
                 │  │       WEATHER      │  │  │   GEO_FEATURES       │
                 │  ├────────────────────┤  │  ├──────────────────────┤
-                └──┼─PK  id             │  └──┼─PK  id               │
-                   │ FK  station_id     │     │ FK  station_id       │
-                   │     fetchedAt      │     │     majorRoadsCount  │
-                   │     temperature    │     │     industrialCount  │
-                   │     humidity       │     │     construction     │
-                   │     windSpeed/Dir  │     │     nearIndustDist   │
-                   │     precipitation  │     │     hospitalCount    │
-                   └────────────────────┘     │     schoolCount      │
+                └──┼─PK  id             │  └──┼─PK id                │
+                   │ FK  station_id     │     │ FK station_id        │ 
+                   │     fetchedAt      │     │    majorRoadsCount   │
+                   │     temperature    │     │    industrialCount   │
+                   │     humidity       │     │    construction      │
+                   │     windSpeed/Dir  │     │    nearIndustDist    │
+                   │     precipitation  │     │    hospitalCount     │
+                   └────────────────────┘     │    schoolCount       │
                                               │    kindergartenCount │
-                                              │     parkCount        │
-                                              │     busStopCount     │
-                                              │     marketCount      │
-                                              │     lastFetched      │
+                                              │    parkCount         │
+                                              │    busStopCount      │
+                                              │    marketCount       │
+                                              │    lastFetched       │
                                               └──────────────────────┘
 ```
 

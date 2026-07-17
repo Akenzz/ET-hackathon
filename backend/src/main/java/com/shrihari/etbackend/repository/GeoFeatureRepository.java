@@ -9,6 +9,7 @@ import java.util.Optional;
 public interface GeoFeatureRepository extends JpaRepository<GeoFeature, Long> {
 
     Optional<GeoFeature> findByStation(Station station);
+    Optional<GeoFeature> findByStation_StationId(String stationId);
 
 
 }
