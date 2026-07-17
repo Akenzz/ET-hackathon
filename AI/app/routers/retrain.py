@@ -12,7 +12,7 @@ router = APIRouter()
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 MODELS_DIR = BASE_DIR / "app" / "models" / "finetuned"
-DATA_DIR = BASE_DIR / "data" / "processed"
+DATA_DIR = BASE_DIR / "data" / "historical" / "processed"
 
 print("Retrain router loaded")
 

@@ -34,7 +34,7 @@ def forecast(
         response.raise_for_status()
 
         data = response.json()
-
+        print(data)
         aqi_history = [
 
             item["aqi"]
@@ -76,14 +76,29 @@ def forecast(
             weather_forecast,
 
         )
+        highest = max(
+            predictions,
+            key=lambda x: x["aqi_predicted"]
+        )
+        current_weather = data["weatherForecast"][0] if data["weatherForecast"] else {}
+
         from app.services.cache import set_cache
         set_cache(
+
             station_id=data["stationId"],
+
             station_name=data["stationName"],
-            geo=data["geoFeatures"],
+
             forecast=predictions,
-            latest_pollutants=data["aqiHistory"][-1],
-            current_weather=data["weatherForecast"][0]
+
+            highest_forecast=highest,
+
+            geo=data["geoFeatures"],
+
+            latest_pollutants=latest_pollutants,
+
+            current_weather=current_weather
+
         )
         return {
 
@@ -94,7 +109,12 @@ def forecast(
             "forecast": predictions
 
         }
+        from pprint import pprint
+        from app.services.cache import CACHE
 
+        print("\n========== CACHE ==========")
+        pprint(CACHE)
+        print("===========================\n")
     except Exception as e:
 
         raise HTTPException(
