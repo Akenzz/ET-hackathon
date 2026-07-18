@@ -418,7 +418,7 @@ export default function StationPanel({ station, reading, role, onClose }: Statio
 
                               <ul className="mt-3 space-y-2">
 
-                                {advisory.recommendations.map((item) => (
+                                {(advisory.recommendations ?? []).map((item) => (
                                   <li
                                     key={item}
                                     className="flex items-start gap-2 text-sm text-fg-muted"
@@ -453,7 +453,7 @@ export default function StationPanel({ station, reading, role, onClose }: Statio
               {Object.entries(reading.pollutants).map(([key, val]) => (
                 <div key={key} className="rounded-xl border border-border/70 bg-bg-elevated-2/80 px-2 py-2 text-center">
                   <p className="font-data text-sm font-semibold text-fg">
-                    {isEngineer ? val.toFixed(2) : val}
+                    {val === null ? "—" : isEngineer ? val.toFixed(2) : val}
                   </p>
                   <p className="text-[10px] text-fg-faint">{POLLUTANT_LABELS[key] || key}</p>
                 </div>
