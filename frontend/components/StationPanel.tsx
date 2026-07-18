@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, MapPin, Droplets, Sparkles, Hash, Loader2, ChevronRight, ShieldCheck, Gauge } from "lucide-react";
-import type { Station, LatestReading, Forecast, Attribution } from "@/lib/types";
+import type { Station, LatestReading, Forecast, Attribution, WeatherLatest, GeoFeatures, HealthAdvisory } from "@/lib/types";
 import type { UserRole } from "@/lib/role";
 import { getAqiBand } from "@/lib/aqi";
-import { getForecast, getAttribution, isMockModeForced } from "@/lib/api";
+import { getForecast, getAttribution, getWeather, getGeoFeatures, getHealthAdvisory, isMockModeForced } from "@/lib/api";
+import { mockWeather, mockGeoFeatures } from "@/lib/mockData";
 import { isLiveStation } from "@/lib/liveStations";
 import ForecastChart from "./ForecastChart";
 import AttributionBadge from "./AttributionBadge";
@@ -33,6 +34,38 @@ export default function StationPanel({ station, reading, role, onClose }: Statio
   const [predictError, setPredictError] = useState<string | null>(null);
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [attribution, setAttribution] = useState<Attribution | null>(null);
+  const [healthAdvisory, setHealthAdvisory] = useState<HealthAdvisory | null>(null);
+  const [weather, setWeather] = useState<WeatherLatest | null>(null);
+  const [geoFeatures, setGeoFeatures] = useState<GeoFeatures | null>(null);
+  const [contextLoading, setContextLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setContextLoading(true);
+      setWeather(null);
+      setGeoFeatures(null);
+      setHealthAdvisory(null);
+
+      const [nextWeatherResult, nextGeoResult] = await Promise.allSettled([
+        getWeather(station.lat, station.lon),
+        getGeoFeatures(station.lat, station.lon),
+      ]);
+
+      if (cancelled) return;
+
+      setWeather(nextWeatherResult.status === "fulfilled" ? nextWeatherResult.value : mockWeather());
+      setGeoFeatures(nextGeoResult.status === "fulfilled" ? nextGeoResult.value : mockGeoFeatures(station.station_id));
+      setContextLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [station.lat, station.lon, station.station_id]);
 
   async function handlePredict() {
     setPredicting(true);
@@ -48,6 +81,15 @@ export default function StationPanel({ station, reading, role, onClose }: Statio
       } catch {
         // Reasoning failing shouldn't hide a successful prediction — the
         // AttributionBadge area just won't render below it.
+      }
+      try {
+        const advisory = await getHealthAdvisory(station.station_id);
+        console.log("Highest AQI:", advisory.highest_forecast_aqi);
+        setHealthAdvisory(advisory);
+      } catch(err) {
+        // Health advisory is an added surface; a miss here shouldn't block
+        // the main forecast or attribution results.
+        console.error("Health advisory failed:", err);
       }
       setPredicted(true);
     } catch {
@@ -109,6 +151,52 @@ export default function StationPanel({ station, reading, role, onClose }: Statio
       </div>
 
       <div className="space-y-4 p-4">
+        <div className="rounded-2xl border border-border/80 bg-bg-elevated-2/60 p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-fg-faint">Local context</p>
+              <h3 className="mt-1 font-display text-base font-semibold text-fg">Weather and exposure snapshot</h3>
+            </div>
+            {contextLoading && <span className="text-[11px] text-fg-faint">Loading…</span>}
+          </div>
+
+          {weather && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-border/70 bg-bg-elevated px-3 py-2">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-fg-faint">Temperature</p>
+                <p className="font-data mt-1 text-sm font-semibold text-fg">{weather.temp_c.toFixed(1)}°C</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-bg-elevated px-3 py-2">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-fg-faint">Humidity</p>
+                <p className="font-data mt-1 text-sm font-semibold text-fg">{weather.humidity}%</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-bg-elevated px-3 py-2">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-fg-faint">Wind</p>
+                <p className="font-data mt-1 text-sm font-semibold text-fg">{weather.wind_speed_kmh} km/h</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-bg-elevated px-3 py-2">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-fg-faint">Pressure</p>
+                <p className="font-data mt-1 text-sm font-semibold text-fg">
+                  {weather.pressure_hpa ? `${weather.pressure_hpa} hPa` : "—"}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {geoFeatures && (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-xl border border-border/70 bg-bg-elevated px-3 py-2">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-fg-faint">Nearby exposure</p>
+                <p className="font-data mt-1 text-sm font-semibold text-fg">{geoFeatures.hospital_count ?? 0} hospitals, {geoFeatures.school_count ?? 0} schools</p>
+              </div>
+              <div className="rounded-xl border border-border/70 bg-bg-elevated px-3 py-2">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-fg-faint">Transit and commerce</p>
+                <p className="font-data mt-1 text-sm font-semibold text-fg">{geoFeatures.bus_stop_count ?? 0} bus stops, {geoFeatures.market_count ?? 0} markets</p>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="rounded-3xl border border-border/80 bg-bg-elevated-2/70 p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[11px] uppercase tracking-[0.18em] text-fg-faint">Current AQI</p>
@@ -155,7 +243,7 @@ export default function StationPanel({ station, reading, role, onClose }: Statio
           )}
         </div>
 
-        <div className="rounded-3xl border-2 border-teal/30 bg-gradient-to-br from-teal/12 via-bg-elevated to-bg-elevated-2 p-4 shadow-lg shadow-teal/5">
+        <div className="rounded-3xl border-2 border-teal/30 bg-linear-to-br from-teal/12 via-bg-elevated to-bg-elevated-2 p-4 shadow-lg shadow-teal/5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal/15 text-teal">
@@ -223,6 +311,135 @@ export default function StationPanel({ station, reading, role, onClose }: Statio
                   </p>
                 )}
               </div>
+
+              {healthAdvisory && (
+                <div className="space-y-4 rounded-3xl border border-border/80 bg-bg-elevated-2/70 p-4">
+
+                  {/* Header */}
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-fg-faint">
+                      Health Advisory
+                    </p>
+                    <h4 className="mt-1 font-display text-base font-semibold text-fg">
+                      Audience-specific guidance
+                    </h4>
+                  </div>
+
+                  {/* Situation Summary */}
+                  <div className="rounded-2xl border border-border/70 bg-bg-elevated p-4">
+                    <div className="flex items-center justify-between">
+
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-fg-faint">
+                          Highest Forecast AQI
+                        </p>
+
+                        <p className="font-data mt-2 text-4xl font-bold text-fg">
+                          {Math.round(healthAdvisory.highest_forecast_aqi)}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="font-semibold text-fg">
+                          {healthAdvisory.situation.aqi_category}
+                        </p>
+
+                        <p className="mt-1 text-xs text-fg-faint">
+                          {new Date(
+                            healthAdvisory.situation.expected_time
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Vulnerability */}
+                  <div>
+
+                    <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-fg-faint">
+                      Nearby Vulnerable Infrastructure
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+
+                      {[
+                        ["Schools", healthAdvisory.vulnerability.school_count],
+                        ["Kindergartens", healthAdvisory.vulnerability.kindergarten_count],
+                        ["Hospitals", healthAdvisory.vulnerability.hospital_count],
+                        ["Parks", healthAdvisory.vulnerability.park_count],
+                        ["Bus Stops", healthAdvisory.vulnerability.bus_stop_count],
+                        ["Markets", healthAdvisory.vulnerability.market_count],
+                        ["Major Roads", healthAdvisory.vulnerability.major_roads_count],
+                        ["Industrial Zones", healthAdvisory.vulnerability.industrial_zones_count],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="rounded-xl border border-border/70 bg-bg-elevated px-3 py-2"
+                        >
+                          <p className="font-data text-lg font-semibold text-fg">
+                            {value ?? 0}
+                          </p>
+
+                          <p className="text-[10px] text-fg-faint">
+                            {label}
+                          </p>
+                        </div>
+                      ))}
+
+                    </div>
+                  </div>
+
+                  {/* Audience Advisories */}
+
+                  <div>
+
+                    <p className="mb-3 text-[11px] uppercase tracking-[0.18em] text-fg-faint">
+                      Guidance by Audience
+                    </p>
+
+                    <div className="space-y-3">
+
+                      {Object.entries(healthAdvisory.advisories).map(
+                        ([audience, advisory]) => (
+                          <details
+                            key={audience}
+                            className="rounded-2xl border border-border/70 bg-bg-elevated"
+                          >
+                            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-fg">
+                              {audience}
+                            </summary>
+
+                            <div className="border-t border-border/70 px-4 py-3">
+
+                              <p className="text-sm leading-6 text-fg-muted">
+                                {advisory.message}
+                              </p>
+
+                              <ul className="mt-3 space-y-2">
+
+                                {advisory.recommendations.map((item) => (
+                                  <li
+                                    key={item}
+                                    className="flex items-start gap-2 text-sm text-fg-muted"
+                                  >
+                                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-teal" />
+                                    {item}
+                                  </li>
+                                ))}
+
+                              </ul>
+
+                            </div>
+                          </details>
+                        )
+                      )}
+
+                    </div>
+                  </div>
+
+                </div>
+              )}
             </div>
           )}
         </div>

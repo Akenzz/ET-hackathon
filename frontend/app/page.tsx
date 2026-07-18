@@ -40,7 +40,15 @@ export default function Home() {
   const [locating, setLocating] = useState(true);
 
   const [view, setView] = useState<View>("dashboard");
-  const [role, setRole] = useState<UserRole | null>(() => getStoredRole());
+  const [role, setRole] = useState<UserRole | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setRole(getStoredRole());
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   function handleSelectRole(r: UserRole) {
     setRole(r);
@@ -271,7 +279,11 @@ export default function Home() {
         </>
       )}
 
-      <ChatWidget stationId={selectedId} stationName={selectedStation?.name} />
+      <ChatWidget
+        key={selectedId ?? "no-station"}
+        stationId={selectedId}
+        stationName={selectedStation?.name}
+      />
     </div>
   );
 }
