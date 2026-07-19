@@ -17,6 +17,7 @@ export default function ChatWidget(props: { stationId: string | null; stationNam
   const [input, setInput] = useState("");
   const [language, setLanguage] = useState("en");
   const [sending, setSending] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,7 +33,8 @@ export default function ChatWidget(props: { stationId: string | null; stationNam
     setInput("");
     setSending(true);
     try {
-      const res = await postChat(userMsg.content, stationId, language);
+      const res = await postChat(userMsg.content, stationId, language, sessionId ?? undefined);
+      setSessionId(res.session_id ?? sessionId);
       setMessages((m) => [...m, {
         role: "assistant", content: res.response, sources: res.sources, timestamp: new Date().toISOString(),
       }]);
