@@ -56,6 +56,7 @@
 
 html {
   min-height: 100%;
+  font-size: 18px;
 }
 
 body {
@@ -64,6 +65,8 @@ body {
   isolation: isolate;
   background: var(--bg);
   color: var(--fg);
+  font-family: var(--font-body);
+  line-height: 1.65;
   background-image:
     radial-gradient(circle at top left, color-mix(in srgb, var(--teal) 16%, transparent) 0, transparent 34%),
     radial-gradient(circle at top right, color-mix(in srgb, var(--sky) 18%, transparent) 0, transparent 28%),
@@ -89,6 +92,40 @@ body::before {
   opacity: 0.22;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+}
+
+.text-\[10px\],
+.text-\[10\.5px\],
+.text-\[11px\],
+.text-xs {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+/* All numeric/data readouts (AQI values, pollutant concentrations,
+   station IDs, timestamps) should use this so digits don't jitter
+   as values update — this is the detail that reads as "instrument"
+   rather than "template dashboard". */
+.font-data-readout {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--cyan) 35%, transparent);
+  color: var(--fg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
 /* Leaflet dark-theme tile filter so the basemap doesn't fight the palette */
 .map-dark-tiles {
   filter: brightness(0.75) invert(1) contrast(0.9) hue-rotate(200deg) saturate(0.6);
@@ -107,6 +144,10 @@ body::before {
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-elevated); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.aqi-marker-selected {
+  animation: pulse-live 2s ease-out infinite;
+}
 
 .marker-cluster-small,
 .marker-cluster-medium,

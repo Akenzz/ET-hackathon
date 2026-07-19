@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Tooltip, ZoomControl, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -17,6 +17,12 @@ interface AqiMapProps {
   center: [number, number];
   zoom: number;
 }
+
+// Resolved hex equivalents of the theme tokens — SVG presentation
+// attributes (stroke/fill set by Leaflet) can't resolve CSS custom
+// properties, so these must be literal values, not var(--x).
+const COLOR_CYAN = "#27E6EC";
+const COLOR_NO_DATA = "#7FA6BE"; // --sky, used as the "no reading yet" stroke/fill
 
 // Recenters/zooms the map whenever `center`/`zoom` change (e.g. once
 // geolocation resolves, or the user hits "reset to India view") without
@@ -48,12 +54,13 @@ export default function AqiMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <FlyTo center={center} zoom={zoom} />
+      <ZoomControl position="bottomright" />
 
       <MarkerClusterGroup chunkedLoading maxClusterRadius={50} spiderfyOnMaxZoom>
         {stations.map((station) => {
           const reading = readings[station.station_id];
           const hasReading = !!reading;
-          const color = hasReading ? getAqiColor(reading.aqi) : "var(--fg-faint)";
+          const color = hasReading ? getAqiColor(reading.aqi) : COLOR_NO_DATA;
           const isSelected = station.station_id === selectedStationId;
 
           return (
@@ -62,15 +69,21 @@ export default function AqiMap({
               center={[station.lat, station.lon]}
               radius={isSelected ? 14 : 9}
               pathOptions={{
-                color: isSelected ? "var(--cyan)" : color,
+                color: isSelected ? COLOR_CYAN : color,
                 weight: isSelected ? 3 : 1.5,
                 fillColor: color,
                 fillOpacity: hasReading ? 0.85 : 0.25, // hollow-ish look for "no data" so it doesn't read as a real band
                 dashArray: hasReading ? undefined : "3,3",
+                className: isSelected ? "aqi-marker-selected" : undefined,
               }}
               eventHandlers={{ click: () => onSelectStation(station.station_id) }}
             >
-              <Tooltip direction="top" offset={[0, -8]} opacity={1} className="!rounded-xl !border !border-border/70 !bg-bg-elevated-2 !text-fg !font-data !text-xs !px-2.5 !py-1.5">
+              <Tooltip
+                direction="top"
+                offset={[0, -8]}
+                opacity={1}
+                className="!rounded-xl !border !border-border/70 !bg-bg-elevated-2 !text-fg !font-data-readout !text-xs !px-2.5 !py-1.5"
+              >
                 <span className="font-semibold">{station.name}</span>
                 {" — " + station.city}
                 {hasReading ? " · AQI " + reading.aqi : " · no data"}

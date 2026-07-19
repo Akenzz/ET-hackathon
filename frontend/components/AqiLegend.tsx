@@ -13,6 +13,14 @@ export default function AqiLegend() {
             style={{ backgroundColor: band.color }}
           />
           <span className="whitespace-nowrap text-[10px] text-fg-muted">{band.label}</span>
+          {("min" in band || "max" in band) && (
+            <span className="font-data-readout whitespace-nowrap text-[10px] text-fg-faint">
+              {"min" in band ? (band as { min?: number }).min : 0}
+              {"max" in band && (band as { max?: number }).max !== undefined
+                ? `–${(band as { max?: number }).max}`
+                : "+"}
+            </span>
+          )}
         </div>
       ))}
     </div>
