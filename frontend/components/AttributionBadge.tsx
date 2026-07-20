@@ -14,24 +14,24 @@ const ICONS: Record<string, React.ElementType> = {
 export default function AttributionBadge(props: { attribution: Attribution | null; loading: boolean }) {
   const { attribution, loading } = props;
   if (loading) {
-    return <div className="h-24 w-full animate-pulse rounded-lg bg-bg-elevated-2" />;
+    return <div className="h-24 w-full animate-pulse rounded-2xl bg-bg-elevated-2" />;
   }
   if (!attribution) return null;
 
-  // Defensive: the real API doesn't guarantee every field is present on
-  // every response. Never let a partial/malformed attribution crash the UI.
   const source = attribution.likely_source ?? "Unknown";
   const factors = Array.isArray(attribution.contributing_factors) ? attribution.contributing_factors : [];
   const confidence = typeof attribution.confidence === "number" ? attribution.confidence : 0;
 
   const Icon = ICONS[source.toLowerCase()] || Sparkles;
   const confidencePct = Math.round(confidence * 100);
+  const confidenceColor =
+    confidencePct >= 75 ? "#27E6EC" : confidencePct >= 45 ? "#5AA5CD" : "#7FA6BE";
 
   return (
-    <div className="rounded-lg border border-border bg-bg-elevated-2 p-3">
+    <div className="rounded-2xl border border-border bg-bg-elevated-2 p-3.5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo/20 text-indigo">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo/20 text-indigo">
             <Icon size={16} />
           </div>
           <div>
@@ -40,10 +40,20 @@ export default function AttributionBadge(props: { attribution: Attribution | nul
           </div>
         </div>
         <div className="text-right">
-          <p className="font-data text-sm font-semibold text-cyan">{confidencePct}%</p>
+          <p className="font-data-readout text-sm font-semibold" style={{ color: confidenceColor }}>
+            {confidencePct}%
+          </p>
           <p className="text-[10px] text-fg-faint">confidence</p>
         </div>
       </div>
+
+      <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-bg-elevated">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${confidencePct}%`, backgroundColor: confidenceColor }}
+        />
+      </div>
+
       {factors.length > 0 && (
         <ul className="mt-2.5 space-y-1 border-t border-border pt-2.5">
           {factors.map((f) => (

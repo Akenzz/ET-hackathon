@@ -9,13 +9,14 @@ interface ErrorNoticeProps {
 export default function ErrorNotice({ message, onRetry, compact }: ErrorNoticeProps) {
   return (
     <div
+      role="alert"
       className={
-        "flex items-start justify-between gap-3 rounded-2xl border border-aqi-very-poor/30 bg-aqi-very-poor/10 shadow-sm " +
+        "flex items-start justify-between gap-3 rounded-2xl border border-red-400/30 bg-red-400/10 shadow-sm " +
         (compact ? "px-3 py-2" : "p-4")
       }
     >
       <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-aqi-very-poor/15 text-aqi-very-poor">
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-400/15 text-red-400">
           <AlertTriangle size={compact ? 13 : 15} />
         </div>
         <p className={compact ? "text-xs text-fg-muted" : "text-sm text-fg-muted"}>{message}</p>

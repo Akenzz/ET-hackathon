@@ -9,6 +9,8 @@ import StationPanel from "@/components/StationPanel";
 import ChatWidget from "@/components/ChatWidget";
 import ErrorNotice from "@/components/ErrorNotice";
 import Dashboard from "@/components/Dashboard";
+import MapErrorBoundary from "@/components/MapErrorBoundary";
+import IntroWalkthrough from "@/components/IntroWalkthrough";
 import { getStations, getLatestReading } from "@/lib/api";
 import { findNearestStation, getBrowserLocation, INDIA_CENTER, INDIA_DEFAULT_ZOOM } from "@/lib/geo";
 import { getStoredRole, storeRole, type UserRole } from "@/lib/role";
@@ -36,15 +38,18 @@ export default function Home() {
 
   const [mapCenter, setMapCenter] = useState<[number, number]>(INDIA_CENTER);
   const [mapZoom, setMapZoom] = useState(INDIA_DEFAULT_ZOOM);
+  const [mapInstanceKey, setMapInstanceKey] = useState(0);
   const [nearestDistanceKm, setNearestDistanceKm] = useState<number | null>(null);
   const [locating, setLocating] = useState(true);
 
   const [view, setView] = useState<View>("dashboard");
   const [role, setRole] = useState<UserRole | null>(null);
+  const [roleChecked, setRoleChecked] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setRole(getStoredRole());
+      setRoleChecked(true);
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -193,7 +198,7 @@ export default function Home() {
               {!locating && nearestDistanceKm !== null && (
                 <div className="rounded-2xl border border-border/80 bg-bg-elevated-2/70 px-3 py-3 text-sm text-fg-muted">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-fg-faint">Nearest station</p>
-                  <p className="font-data mt-1 text-base text-fg">{nearestDistanceKm.toFixed(1)} km away</p>
+                  <p className="font-data-readout mt-1 text-base text-fg">{nearestDistanceKm.toFixed(1)} km away</p>
                 </div>
               )}
 
@@ -235,6 +240,9 @@ export default function Home() {
               )}
             </aside>
 
+            {/* Map now stays mounted regardless of selection — the station
+                panel docks on top of it as an overlay instead of replacing
+                it, so context (position, other markers) is never lost. */}
             <section className="relative min-h-0 overflow-hidden rounded-3xl border border-border/80 bg-bg-elevated/70 shadow-2xl backdrop-blur-xl">
               {loadingStations ? (
                 <div className="flex h-full min-h-[28rem] w-full items-center justify-center bg-bg-elevated">
@@ -246,32 +254,46 @@ export default function Home() {
                     <ErrorNotice message={stationsError} onRetry={loadStations} />
                   </div>
                 </div>
-              ) : selectedStation ? (
-                <StationPanel
-                  key={selectedStation.station_id}
-                  station={selectedStation}
-                  reading={readings[selectedStation.station_id]}
-                  role={role ?? "citizen"}
-                  onClose={() => setSelectedId(null)}
-                />
               ) : (
                 <div className="relative h-full min-h-[28rem] w-full">
-                  <AqiMap
-                    stations={stations}
-                    readings={readings}
-                    selectedStationId={selectedId}
-                    onSelectStation={setSelectedId}
-                    center={mapCenter}
-                    zoom={mapZoom}
-                  />
-                </div>
-              )}
-
-              {!selectedStation && !loadingStations && !stationsError && (
-                <div className="pointer-events-none absolute right-4 top-4 z-500 flex flex-col items-end gap-2">
-                  <div className="pointer-events-auto rounded-full border border-border/80 bg-bg-elevated/90 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-xl shadow-lg">
-                    Map ready
+                  {/* Map stays mounted (state preserved) but is visually
+                      hidden while a station is selected, so switching back
+                      is instant with no re-fetch/reflow. */}
+                  <div className={(selectedStation ? "invisible " : "") + "h-full w-full"}>
+                    <MapErrorBoundary
+                      key={mapInstanceKey}
+                      onError={() => setMapInstanceKey((k) => k + 1)}
+                    >
+                      <AqiMap
+                        stations={stations}
+                        readings={readings}
+                        selectedStationId={selectedId}
+                        onSelectStation={setSelectedId}
+                        center={mapCenter}
+                        zoom={mapZoom}
+                      />
+                    </MapErrorBoundary>
                   </div>
+
+                  {!selectedStation && (
+                    <div className="pointer-events-none absolute right-4 top-4 z-500 flex flex-col items-end gap-2">
+                      <div className="pointer-events-auto rounded-full border border-border/80 bg-bg-elevated/90 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-xl shadow-lg">
+                        Map ready
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedStation && (
+                    <div className="absolute inset-0 z-500">
+                      <StationPanel
+                        key={selectedStation.station_id}
+                        station={selectedStation}
+                        reading={readings[selectedStation.station_id]}
+                        role={role ?? "citizen"}
+                        onClose={() => setSelectedId(null)}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -284,6 +306,9 @@ export default function Home() {
         stationId={selectedId}
         stationName={selectedStation?.name}
       />
+      {roleChecked && !role && (
+        <IntroWalkthrough onComplete={(r) => handleSelectRole(r)} />
+      )}
     </div>
   );
 }
