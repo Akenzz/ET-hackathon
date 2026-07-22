@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://via.placeholder.com/150" alt="Logo" width="120" height="120">
+  <!-- <img src="https://via.placeholder.com/150" alt="Logo" width="120" height="120"> -->
 
   # 🌬️ AQI Command Center
   
@@ -13,7 +13,7 @@
   [![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python)](#)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](#)
 
-  [Demo Video Placeholder]
+  <!-- [Demo Video Placeholder] -->
 </div>
 
 ---
@@ -143,6 +143,11 @@ Measurable metrics and capabilities derived from our architecture:
   - **How it works:** It evaluates PM10/PM2.5 ratios alongside live wind direction vectors intersecting with nearby OpenStreetMap (OSM) industrial and highway zones.
   - **Why it matters:** It transforms a "black-box" AQI number into actionable intelligence for urban planners and concerned citizens.
 
+- **On-Demand Model Retraining**
+  - **What it does:** Allows system administrators to finetune the prediction models for a specific station.
+  - **How it works:** Automatically loads the latest processed CSV data for a given station and triggers a background XGBoost retraining job, saving the new `.pkl` binary.
+  - **Why it matters:** Ensures the model's accuracy doesn't drift as seasonal pollution patterns change.
+
 ### 👥 User Features
 
 - **Real-Time Interactive Dashboard**
@@ -171,6 +176,11 @@ Measurable metrics and capabilities derived from our architecture:
   - **What it does:** Automatically keeps the platform's data completely up-to-date without manual intervention.
   - **How it works:** Spring `@Scheduled` cron jobs ping the WAQI and Open-Meteo APIs hourly, intelligently upserting new records into the database.
   - **Why it matters:** Ensures the ML models and citizen dashboards are always powered by the absolute latest atmospheric ground truth.
+
+- **Geospatial Syncing**
+  - **What it does:** Automates the ingestion of OSM elements (hospitals, schools, industrial zones).
+  - **How it works:** Queries the Overpass API directly to update vulnerability scores and source attribution parameters.
+  - **Why it matters:** Automates vulnerability analysis for localized health advisories.
 
 - **Mock/Live Routing Switch**
   - **What it does:** Allows developers to test the full UI without exhausting third-party API rate limits.
@@ -371,68 +381,43 @@ npm run dev
 
 ## 14. API Documentation
 
-Our API surface is distributed across the microservices, but adheres to standard REST and JSON protocols. Below are the primary endpoints developers will interact with.
+Our API surface is distributed across microservices, adhering to REST protocols. Below is the comprehensive list of endpoints.
 
 ### 1. Java Feature Store (`Port 8000`)
+Base URL: `http://localhost:8000`
 
-#### `GET /stations`
-Retrieves a list of all active air quality monitoring stations tracked by the system.
-
-- **Status Code:** `200 OK`
-- **cURL Example:** 
-  ```bash
-  curl -X GET http://localhost:8000/stations
-  ```
-- **Response Schema:**
-  ```json
-  [
-    {
-      "stationId": "2553",
-      "name": "Anand Vihar, Delhi",
-      "city": "Delhi",
-      "state": "Delhi",
-      "latitude": 28.6468,
-      "longitude": 77.3160
-    }
-  ]
-  ```
-
----
+- **Stations**
+  - `GET /stations` - Retrieves a list of all active air quality monitoring stations.
+- **Readings**
+  - `GET /readings/latest?stationId={id}` - Fetches the most recent AQI and pollutant reading.
+  - `GET /readings/history?stationId={id}&from={iso}&to={iso}` - Fetches historical time-series data.
+- **Forecasts & Features**
+  - `GET /forecast/{stationId}?horizon=24&history=3` - Combines historical readings, weather forecasts, and geo-features.
+- **Weather & Geo**
+  - `GET /weather/latest?lat={lat}&lon={lon}` - Fetches latest weather data.
+  - `GET /geo/features?lat={lat}&lon={lon}` - Fetches nearby points of interest (hospitals, industrial zones, etc).
+  - `POST /geo/import/geo` - Triggers a manual sync of OSM geospatial data.
+- **System**
+  - `GET /health` - Returns service liveness and database statistics.
 
 ### 2. Python AI Forecaster (`Port 8001`)
+Base URL: `http://localhost:8001`
 
-#### `GET /forecast/{station_id}`
-Triggers an autoregressive XGBoost inference utilizing historical lagged features and future meteorological weather vectors to predict the AQI for the next 24 hours.
-
-- **Status Code:** `200 OK` (or `500 Internal Server Error` if data is sparse)
-- **Parameters:** `?horizon=24&history=3`
-- **cURL Example:** 
-  ```bash
-  curl -X GET http://localhost:8001/forecast/2553
-  ```
-- **Response Schema:**
-  ```json
-  {
-    "stationId": "2553",
-    "stationName": "Anand Vihar, Delhi",
-    "forecast": [
-      {
-        "timestamp": "2026-07-16T15:00:00",
-        "aqi_predicted": 345.2,
-        "confidence": 0.89
-      }
-    ]
-  }
-  ```
-
----
+- **Forecasting**
+  - `GET /forecast/{station_id}?horizon=24&history=3` - Runs autoregressive XGBoost inference to predict AQI for the next 24 hours.
+- **Analysis**
+  - `GET /attribution/{station_id}` - Attributes likely pollution sources (e.g. Traffic, Industry) using wind and PM ratios.
+  - `GET /health-advisory/{station_id}` - Evaluates local vulnerability (hospitals/schools) to generate high-level guidance.
+- **MLOps**
+  - `POST /retrain/{station_id}` - Loads the latest dataset and fine-tunes the XGBoost model for the given station.
 
 ### 3. Python RAG Chatbot (`Port 8080`)
+Base URL: `http://localhost:8080/api/v1`
 
 #### `POST /chat`
-Submits a natural language query to the LLaMA-3 agent. The service dynamically fetches the live AQI, 24-hour forecast, and localized source attribution, embeds the query to retrieve markdown health guidelines, and generates a conversational response.
+Submits a natural language query to the LLaMA-3 agent. The service fetches live AQI, forecast, attribution, and embeds the query to retrieve markdown health guidelines, returning a conversational response.
 
-- **Status Code:** `200 OK` (or `400 Bad Request` if input triggers guardrails)
+- **Status Code:** `200 OK` (or `400 Bad Request` if guardrails fail)
 - **Request Body:**
   ```json
   {
@@ -440,12 +425,6 @@ Submits a natural language query to the LLaMA-3 agent. The service dynamically f
     "station_id": "2553",
     "language": "en"
   }
-  ```
-- **cURL Example:**
-  ```bash
-  curl -X POST http://localhost:8080/chat \
-       -H "Content-Type: application/json" \
-       -d '{"query": "Is it safe to run?", "station_id": "2553", "language": "en"}'
   ```
 - **Response Schema:**
   ```json

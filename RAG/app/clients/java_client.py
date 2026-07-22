@@ -26,7 +26,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 _BASE_URL: str = os.getenv("JAVA_SERVICE_URL", "http://localhost:8000").rstrip("/")
-_TIMEOUT: int = 3  # seconds — keep the RAG pipeline snappy
+_TIMEOUT: int = 3  
 
 
 # ─────────────────────────────────────────────────────────────────────────────
